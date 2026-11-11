@@ -21,6 +21,8 @@ class CompetitionIntegrityTest {
     @Mock FileService files;
     @Mock com.cie.competition.module.message.service.MessageService messages;
     @Mock com.cie.competition.module.history.service.BusinessHistoryService history;
+    @Mock com.cie.competition.module.competition.service.CompetitionCancellationService cancellation;
+    @Mock org.springframework.jdbc.core.JdbcTemplate jdbc;
     @InjectMocks CompetitionServiceImpl service;
     @AfterEach void clear() { UserContext.clear(); }
     CompetitionDTO dto() {
@@ -88,7 +90,7 @@ class CompetitionIntegrityTest {
         order.verify(mapper).deleteById(1L);
     }
     @Test void registrationsProtectRules() {
-        managed("REGISTERING"); when(mapper.countRegistrations(1L)).thenReturn(1L);
+        managed("DRAFT"); when(mapper.countRegistrations(1L)).thenReturn(1L);
         var dto=dto(); dto.setCompetitionType("PERSONAL");
         assertThrows(BusinessException.class, () -> service.update(1L,dto));
         dto.setCompetitionType("TEAM"); dto.setAllowCrossMajor(1);
@@ -127,6 +129,8 @@ class CompetitionIntegrityTest {
     }
     @Test void statusesAdvanceOneStepAndNeverReturn() {
         var c=managed("DRAFT"); c.setRegistrationStartTime(LocalDateTime.now().minusHours(1)); c.setRegistrationEndTime(LocalDateTime.now().plusHours(1));
+        c.setMajorId(2L);
+        when(jdbc.queryForList(contains("SELECT id FROM sys_major"),eq(2L))).thenReturn(java.util.List.of(java.util.Map.of("id",2L)));
         when(mapper.countTeacherQuota(1L)).thenReturn(1L);
         service.updateStatus(1L,"REGISTERING");
         assertThrows(BusinessException.class, () -> service.updateStatus(1L,"DRAFT"));

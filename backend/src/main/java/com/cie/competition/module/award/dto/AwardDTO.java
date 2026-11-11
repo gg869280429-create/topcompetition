@@ -18,11 +18,17 @@ public class AwardDTO {
     @NotBlank(message = "奖项等级不能为空")
     private String awardLevel;
 
-    @NotNull(message = "获奖日期不能为空")
     private LocalDateTime awardTime;
 
-    @NotNull(message = "获奖证明不能为空")
     private Long certificateFileId;
 
     private String reason;
+    @jakarta.validation.constraints.Size(max=160)
+    private String achievementName;
+    private java.util.List<Long> studentIds;
+    private java.util.List<Long> teacherIds;
+    private Long officialListFileId;
+    private Long registrationScreenshotFileId;
+    private java.util.List<Long> processPhotoFileIds;
+    private Boolean draft;
 }

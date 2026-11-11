@@ -11,6 +11,14 @@ import java.time.LocalDateTime;
 public class AwardVO {
 
     private Long id;
+    private String achievementName;
+    private String achievementKey;
+    private Integer legacyRecord;
+    private Long officialListFileId;
+    private Long registrationScreenshotFileId;
+    private String processPhotoFileIds;
+    private java.util.List<java.util.Map<String,Object>> students;
+    private java.util.List<java.util.Map<String,Object>> teachers;
 
     private Long competitionId;
 

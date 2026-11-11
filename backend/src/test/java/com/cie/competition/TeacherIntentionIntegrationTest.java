@@ -758,7 +758,7 @@ class TeacherIntentionIntegrationTest extends IsolatedDatabaseTest {
         assertThrows(BusinessException.class,()->awards.getById(prize));
         accept(id,replacement);submit(id);
         asStudent(otherStudent);assertEquals(prize,awards.getById(prize).getId());
-        assertEquals(1L,awards.page(new com.cie.competition.module.award.dto.AwardQueryDTO()).getTotal());
+        assertEquals(0L,awards.page(new com.cie.competition.module.award.dto.AwardQueryDTO()).getTotal());
         asAdmin();jdbc.update("UPDATE sys_user SET major_id=?,real_name='新名字' WHERE id IN (?,?)",majorId+100000,student,otherStudent);
         var saved=awards.getById(prize);assertEquals(majorId,saved.getMajorId());assertTrue(saved.getParticipantsSnapshot().contains("other_student"));
         assertFalse(saved.getParticipantsSnapshot().contains("新名字"));

@@ -17,6 +17,10 @@ public class ContentVO {
     private String content;
 
     private Long coverFileId;
+    private String officialUrl;
+    private Boolean carouselEnabled = false;
+    private Integer sortOrder = 0;
+
 
     private String category;
 

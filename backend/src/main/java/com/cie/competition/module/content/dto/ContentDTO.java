@@ -17,6 +17,12 @@ public class ContentDTO {
     private String content;
 
     private Long coverFileId;
+    @jakarta.validation.constraints.Size(max=2048, message="官网地址不能超过2048个字符")
+    private String officialUrl;
+    private Boolean carouselEnabled = false;
+    @jakarta.validation.constraints.Min(0)
+    private Integer sortOrder = 0;
+
 
     @NotBlank(message = "分类不能为空")
     private String category;

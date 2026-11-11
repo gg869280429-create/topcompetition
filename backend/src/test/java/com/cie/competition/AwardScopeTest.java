@@ -71,7 +71,7 @@ class AwardScopeTest {
         var captor=org.mockito.ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper.class);
         verify(mapper).selectPage(any(),captor.capture());String sql=captor.getValue().getSqlSegment();
         if(role.equals("MAJOR_ADMIN"))assertTrue(sql.contains("major_id ="),sql);
-        else if(role.equals("TEACHER")){assertTrue(sql.contains("registration_id IN"),sql);assertTrue(sql.contains("17"),sql);}
+        else if(role.equals("TEACHER")){assertTrue(sql.contains("registration_id IN"),sql);assertTrue(captor.getValue().getParamNameValuePairs().containsValue(17L),sql);assertTrue(sql.contains("award_teacher"),sql);}
         if(role.equals("TEACHER"))assertTrue(sql.contains("ACTIVE"),sql);
         if(role.equals("STUDENT"))assertTrue(sql.contains("JSON_CONTAINS"),sql);
     }

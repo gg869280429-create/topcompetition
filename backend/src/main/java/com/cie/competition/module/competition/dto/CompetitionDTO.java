@@ -14,6 +14,8 @@ import java.time.LocalDateTime;
 @Data
 public class CompetitionDTO {
 
+    private Long majorId;
+
     @NotBlank(message = "竞赛名称不能为空")
     @Size(max = 128, message = "竞赛名称长度不能超过128个字符")
     private String title;

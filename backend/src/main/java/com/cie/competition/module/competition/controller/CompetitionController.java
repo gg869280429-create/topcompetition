@@ -58,6 +58,13 @@ public class CompetitionController {
         return Result.success();
     }
 
+    @PutMapping("/{id}/major")
+    @PreAuthorize("hasAnyRole('ADMIN','MAJOR_ADMIN')")
+    public Result<Void> updateMajor(@PathVariable Long id,@RequestParam Long majorId) {
+        competitionService.updateMajor(id,majorId);
+        return Result.success();
+    }
+
     @GetMapping("/{id}/document")
     public org.springframework.http.ResponseEntity<org.springframework.core.io.Resource> document(@PathVariable Long id) {
         return fileService.download(competitionService.getById(id).getDocumentFileId());

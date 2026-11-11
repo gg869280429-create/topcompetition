@@ -25,8 +25,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class ContentController {
 
     private final ContentService contentService;
+    private final com.cie.competition.module.file.service.FileService files;
 
-    @GetMapping("/page")
+    @GetMapping("/carousel")
+    public Result<java.util.List<ContentVO>> carousel(){return Result.success(contentService.carousel());}
+    @GetMapping("/{id}/cover")
+    public org.springframework.http.ResponseEntity<org.springframework.core.io.Resource> cover(@PathVariable Long id){return files.contentCover(contentService.coverFileId(id));}    @GetMapping("/page")
     public Result<PageResult<ContentVO>> page(ContentQueryDTO query) {
         return Result.success(contentService.page(query));
     }

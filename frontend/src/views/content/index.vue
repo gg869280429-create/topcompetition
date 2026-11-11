@@ -1,9 +1,9 @@
 <template>
   <div>
-    <PageHeader title="内容管理">
+    <PageHeader :title="isAdmin ? '新闻管理' : '新闻资讯'">
       <template #actions>
         <el-button v-if="isAdmin" type="primary" @click="openCreate">
-          <el-icon><Plus /></el-icon>新增内容
+          <el-icon><Plus /></el-icon>新增新闻
         </el-button>
       </template>
     </PageHeader>
@@ -73,7 +73,7 @@
     <!-- 新增 / 编辑弹窗 -->
     <el-dialog
       v-model="dialogVisible"
-      :title="form.id ? '编辑内容' : '新增内容'"
+      :title="form.id ? '编辑内容' : '新增新闻'"
       width="640px"
       :close-on-click-modal="false"
       @closed="resetForm"
@@ -83,10 +83,22 @@
           <el-input v-model="form.title" maxlength="128" show-word-limit />
         </el-form-item>
         <el-form-item label="分类" prop="category">
-          <el-select v-model="form.category" style="width: 100%">
+          <el-select v-model="form.category" style="width: 100%" @change="value => { if(value !== 'NEWS') form.carouselEnabled=false }">
             <el-option v-for="(label, value) in CONTENT_CATEGORY" :key="value" :label="label" :value="value" />
           </el-select>
         </el-form-item>
+        <el-form-item label="比赛官网">
+          <el-input v-model="form.officialUrl" maxlength="2048" placeholder="https://对应大赛官网（新闻发布必填）" />
+        </el-form-item>
+        <el-form-item label="封面图片">
+          <el-upload :http-request="uploadCover" :show-file-list="false" accept="image/png,image/jpeg,image/webp" :disabled="coverUploading">
+            <el-button :loading="coverUploading">上传封面图片</el-button>
+          </el-upload>
+          <span v-if="form.coverFileId">已关联封面 #{{ form.coverFileId }}</span>
+          <el-button v-if="form.coverFileId" link type="danger" @click="form.coverFileId=null">移除</el-button>
+        </el-form-item>
+        <el-form-item label="首页轮播"><el-switch v-model="form.carouselEnabled" :disabled="form.category !== 'NEWS'" /><span> 开启需封面图片和官网地址</span></el-form-item>
+        <el-form-item label="轮播排序"><el-input-number v-model="form.sortOrder" :min="0" :max="999999" /></el-form-item>
         <el-form-item label="正文">
           <el-input v-model="form.content" type="textarea" :rows="8" placeholder="请输入正文内容" />
         </el-form-item>
@@ -106,13 +118,16 @@
         <span class="meta-text">浏览：{{ detail.viewCount || 0 }}</span>
       </div>
       <el-divider />
+      <img v-if="detailCover" :src="detailCover" alt="新闻封面" class="news-cover" />
+      <p v-if="safeOfficialUrl(detail.officialUrl)"><a :href="detail.officialUrl" target="_blank" rel="noopener noreferrer">比赛官网 ↗</a></p>
+      <el-alert v-else-if="detail.category === 'NEWS'" title="历史新闻尚未补录官网地址" type="info" :closable="false" />
       <div class="detail-content">{{ detail.content || '（暂无正文）' }}</div>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted }  from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import PageHeader from '@/components/PageHeader.vue'
 import PageContainer from '@/components/PageContainer.vue'
@@ -123,7 +138,7 @@ import {
   createContent,
   updateContent,
   deleteContent,
-  updateContentStatus
+  getContentCover, uploadContentCover, updateContentStatus
 } from '@/api/content'
 import { CONTENT_CATEGORY, CONTENT_STATUS } from '@/constants/dict'
 
@@ -140,7 +155,9 @@ const dialogVisible = ref(false)
 const detailVisible = ref(false)
 const formRef = ref()
 const detail = ref({})
-const defaultForm = () => ({ id: null, title: '', category: 'NOTICE', content: '' })
+const detailCover = ref('')
+const coverUploading = ref(false)
+const defaultForm = () => ({ id: null, title: '', category: 'NEWS', content: '', officialUrl: '', coverFileId: null, carouselEnabled: false, sortOrder: 0 })
 const form = reactive(defaultForm())
 const rules = {
   title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
@@ -189,7 +206,7 @@ function openCreate() {
 
 function openEdit(row) {
   resetForm()
-  Object.assign(form, { id: row.id, title: row.title, category: row.category, content: row.content })
+  Object.assign(form, { ...row, carouselEnabled: !!row.carouselEnabled })
   dialogVisible.value = true
 }
 
@@ -198,7 +215,9 @@ function handleSubmit() {
     if (!valid) return
     submitting.value = true
     try {
-      const payload = { title: form.title, category: form.category, content: form.content, coverFileId: null }
+      if (form.officialUrl && !safeOfficialUrl(form.officialUrl)) { ElMessage.warning('请输入有效的HTTP/HTTPS官网地址'); return }
+      if (form.carouselEnabled && (!form.coverFileId || !form.officialUrl)) { ElMessage.warning('轮播需要封面和官网地址'); return }
+      const payload = { ...form }
       if (form.id) {
         await updateContent(form.id, payload)
       } else {
@@ -217,6 +236,8 @@ async function openDetail(row) {
   const res = await getContent(row.id)
   detail.value = res.data
   detailVisible.value = true
+  if(detailCover.value) URL.revokeObjectURL(detailCover.value)
+  detailCover.value = detail.value.coverFileId ? URL.createObjectURL(await getContentCover(detail.value.id)) : ''
   fetchList()
 }
 
@@ -231,6 +252,7 @@ function handleDelete(row) {
 }
 
 function changeStatus(row, status) {
+  if (status === 'PUBLISHED' && row.category === 'NEWS' && !safeOfficialUrl(row.officialUrl)) { ElMessage.warning('请先编辑补录有效的比赛官网地址'); return }
   const action = status === 'PUBLISHED' ? '发布' : '下线'
   ElMessageBox.confirm(`确定${action}内容「${row.title}」吗？`, '提示', { type: 'warning' })
     .then(async () => {
@@ -241,10 +263,21 @@ function changeStatus(row, status) {
     .catch(() => {})
 }
 
+function safeOfficialUrl(value) {
+  try { const url=new URL(value); return ['http:','https:'].includes(url.protocol) && !!url.hostname && !url.username && !url.password } catch { return false }
+}
+async function uploadCover(options) {
+  coverUploading.value = true
+  try { const response = await uploadContentCover(options.file); form.coverFileId = response.data.id; options.onSuccess?.(response) }
+  catch (error) { options.onError?.(error) }
+  finally { coverUploading.value = false }
+}
+onUnmounted(() => { if(detailCover.value)URL.revokeObjectURL(detailCover.value) })
 onMounted(fetchList)
 </script>
 
 <style scoped>
+.news-cover { display:block; max-width:100%; max-height:320px; object-fit:contain; margin:0 auto 16px; }
 .search-form {
   margin-bottom: var(--spacing-sm);
 }

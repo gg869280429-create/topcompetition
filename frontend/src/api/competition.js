@@ -1,5 +1,7 @@
 import request from './request'
 
+export const updateCompetitionMajor = (id, majorId) => request.put(`/competition/${id}/major`, null, { params: { majorId } })
+
 export function pageCompetition(params) {
   return request.get('/competition/page', { params })
 }

@@ -29,6 +29,9 @@ public class StatisticsServiceImpl implements StatisticsService {
         vo.setRegistrationPeopleCount(statisticsMapper.countRegistrationPeople(majorId));
         vo.setEffectiveRegistrationCount(statisticsMapper.countEffectiveRegistration(majorId));
         vo.setAwardCount(statisticsMapper.countAward(majorId));
+        vo.setAwardTeamCount(statisticsMapper.countAwardTeams(majorId));
+        vo.setAwardStudentCount(statisticsMapper.countAwardStudents(majorId));
+        vo.setTeacherAchievementCount(statisticsMapper.countTeacherAchievements(majorId));
         vo.setStudentCount(statisticsMapper.countStudent(majorId));
         vo.setTeacherCount(statisticsMapper.countTeacher(majorId));
         vo.setGuidanceCount(statisticsMapper.countGuidance(majorId));

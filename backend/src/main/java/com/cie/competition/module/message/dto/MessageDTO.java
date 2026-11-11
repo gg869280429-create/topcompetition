@@ -18,7 +18,9 @@ public class MessageDTO {
     @Size(max = 128, message = "标题长度不能超过128个字符")
     private String title;
 
+    @Size(max = 1024, message = "消息内容不能超过1024个字符")
     private String content;
 
+    @jakarta.validation.constraints.Pattern(regexp = "(?:SYSTEM|NOTICE|AUDIT)?", message = "非法的消息类型")
     private String type;
 }

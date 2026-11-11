@@ -51,7 +51,7 @@ public class TeacherService {
     public Long save(Long id, TeacherDTO dto) {
         if ("MAJOR_ADMIN".equals(UserContext.get().getRole()) && !adminMajor().equals(dto.getMajorId()))
             throw new BusinessException(403, "仅能维护本专业教师");
-        if (majors().stream().noneMatch(m -> m.getId().equals(dto.getMajorId()))) throw new BusinessException("专业不存在或已停用");
+        if (userMapper.lockMajor(dto.getMajorId()) == null) throw new BusinessException("专业不存在或已停用");
         User user = id == null ? new User() : userMapper.lockById(id);
         if (user == null || (id != null && !"TEACHER".equals(user.getRole()))) throw new BusinessException("教师不存在");
         if (id != null && "MAJOR_ADMIN".equals(UserContext.get().getRole()) && !adminMajor().equals(user.getMajorId()))

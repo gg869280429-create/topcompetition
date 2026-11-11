@@ -44,6 +44,7 @@ public class GuidanceServiceImpl implements GuidanceService {
     private final com.cie.competition.module.user.service.TeacherService teacherService;
     private final com.cie.competition.module.message.service.MessageService messageService;
     private final com.cie.competition.module.history.service.BusinessHistoryService historyService;
+    private final com.cie.competition.module.guidance.service.GuidanceCompletionService completionService;
 
     @Override
     public PageResult<GuidanceQuotaVO> quotaPage(Long competitionId, long current, long size) {
@@ -203,6 +204,7 @@ public class GuidanceServiceImpl implements GuidanceService {
         guidance.setActiveKey(1);
         guidance.setAssignerId(UserContext.getUserId());
         guidance.setAssignTime(LocalDateTime.now());
+        guidance.setMembersSnapshot(completionService.snapshotMembers(dto.getRegistrationId()));
         try {
             guidanceMapper.insert(guidance);
         } catch (DuplicateKeyException e) {
@@ -259,7 +261,7 @@ public class GuidanceServiceImpl implements GuidanceService {
         Page<Guidance> page = guidanceMapper.selectPage(new Page<>(current, size),
                 new LambdaQueryWrapper<Guidance>()
                         .eq(Guidance::getTeacherId, teacherId)
-                        .eq(Guidance::getStatus, "ACTIVE")
+                        .in(Guidance::getStatus, "ACTIVE", "COMPLETED")
                         .orderByDesc(Guidance::getAssignTime));
         return new PageResult<>(assembleVOs(page.getRecords()), page.getTotal(), page.getCurrent(), page.getSize());
     }
@@ -287,6 +289,8 @@ public class GuidanceServiceImpl implements GuidanceService {
         return list.stream().map(g -> {
             GuidanceVO vo = new GuidanceVO();
             BeanUtils.copyProperties(g, vo);
+            if (UserContext.get() != null && "TEACHER".equals(UserContext.get().getRole())
+                    && !java.util.Objects.equals(g.getTeacherId(), UserContext.getUserId())) vo.setMembersSnapshot(null);
             RegistrationVO reg = registrationMap.get(g.getRegistrationId());
             if (reg != null) {
                 vo.setTeamName(reg.getTeamName());

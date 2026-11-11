@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS `competition` (
     `allow_cross_major`       TINYINT      NOT NULL DEFAULT 0 COMMENT '是否允许跨专业组队：1 是，0 否',
     `status`                  VARCHAR(16)  NOT NULL DEFAULT 'DRAFT' COMMENT '状态：DRAFT 草稿 / REGISTERING 报名中 / IN_PROGRESS 进行中 / ENDED 已结束',
     `publisher_id`            BIGINT       DEFAULT NULL COMMENT '发布人用户 ID',
+    `major_id`                BIGINT       DEFAULT NULL COMMENT '展示分类专业，不决定报名归属',
     `manager_id`              BIGINT       DEFAULT NULL COMMENT '指定负责人用户 ID',
     `cancellation_reason`     VARCHAR(1000) DEFAULT NULL,
     `cancelled_at`            DATETIME DEFAULT NULL,
@@ -74,6 +75,7 @@ CREATE TABLE IF NOT EXISTS `competition` (
     `update_time`             DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
     KEY `idx_status` (`status`),
+    KEY `idx_classification_major` (`major_id`),
     KEY `idx_publisher` (`publisher_id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '竞赛表';
 
@@ -149,6 +151,7 @@ CREATE TABLE IF NOT EXISTS `guidance` (
     `active_key`      TINYINT DEFAULT 1,
     `ended_time`      DATETIME DEFAULT NULL,
     `end_reason`      VARCHAR(1000) DEFAULT NULL,
+    `members_snapshot` TEXT DEFAULT NULL,
     `create_time`     DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `update_time`     DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
@@ -174,12 +177,38 @@ CREATE TABLE IF NOT EXISTS `award` (
     `team_name_snapshot` VARCHAR(128) DEFAULT NULL,
     `participants_snapshot` TEXT,
     `revocation_reason` VARCHAR(1000) DEFAULT NULL,
+    `achievement_name` VARCHAR(160) DEFAULT NULL,
+    `achievement_key` CHAR(64) DEFAULT NULL,
+    `legacy_record` TINYINT NOT NULL DEFAULT 0,
+    `official_list_file_id` BIGINT DEFAULT NULL,
+    `registration_screenshot_file_id` BIGINT DEFAULT NULL,
+    `process_photo_file_ids` TEXT,
     `create_time`         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `update_time`         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_competition_registration` (`competition_id`, `registration_id`),
+    UNIQUE KEY `uk_achievement` (`competition_id`, `registration_id`, `achievement_key`),
     KEY `idx_status` (`status`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '获奖表';
+
+CREATE TABLE IF NOT EXISTS `award_student` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `award_id` BIGINT NOT NULL, `student_id` BIGINT NOT NULL,
+    `name_snapshot` VARCHAR(64), `major_id_snapshot` BIGINT, `major_name_snapshot` VARCHAR(64),
+    UNIQUE KEY `uk_award_student` (`award_id`,`student_id`), KEY `idx_student` (`student_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `award_teacher` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `award_id` BIGINT NOT NULL, `teacher_id` BIGINT NOT NULL, `name_snapshot` VARCHAR(64),
+    UNIQUE KEY `uk_award_teacher` (`award_id`,`teacher_id`), KEY `idx_teacher` (`teacher_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `award_celebration` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `award_id` BIGINT NOT NULL, `teacher_id` BIGINT NOT NULL,
+    `displayed_time` DATETIME DEFAULT NULL, `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY `uk_award_teacher` (`award_id`,`teacher_id`), KEY `idx_pending` (`teacher_id`,`displayed_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `team_invitation` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
@@ -226,12 +255,32 @@ CREATE TABLE IF NOT EXISTS `business_history` (
 -- 四、内容、消息、文件与日志
 -- ======================================================================
 
+CREATE TABLE IF NOT EXISTS `participation_result` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `guidance_id` BIGINT NOT NULL,
+    `registration_id` BIGINT NOT NULL,
+    `student_id` BIGINT NOT NULL,
+    `teacher_id` BIGINT NOT NULL,
+    `student_name_snapshot` VARCHAR(64) DEFAULT NULL,
+    `participated` TINYINT NOT NULL,
+    `won` TINYINT NOT NULL DEFAULT 0,
+    `remark` VARCHAR(1000) DEFAULT NULL,
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_guidance_student` (`guidance_id`,`student_id`),
+    KEY `idx_participation_student` (`student_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- 内容表（新闻 / 通知 / 公告）
 CREATE TABLE IF NOT EXISTS `content` (
     `id`             BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
     `title`          VARCHAR(128) NOT NULL COMMENT '标题',
     `content`        MEDIUMTEXT   COMMENT '正文（富文本）',
     `cover_file_id`  BIGINT       DEFAULT NULL COMMENT '封面图片文件 ID',
+    `official_url`   VARCHAR(2048) DEFAULT NULL,
+    `carousel_enabled` TINYINT NOT NULL DEFAULT 0,
+    `sort_order` INT NOT NULL DEFAULT 0,
     `category`       VARCHAR(32)  NOT NULL DEFAULT 'NOTICE' COMMENT '分类：NOTICE 通知 / NEWS 新闻 / ANNOUNCEMENT 公告',
     `status`         VARCHAR(16)  NOT NULL DEFAULT 'DRAFT' COMMENT '状态：DRAFT 草稿 / PUBLISHED 已发布',
     `author_id`      BIGINT       DEFAULT NULL COMMENT '作者用户 ID',
@@ -302,5 +351,5 @@ CREATE TABLE IF NOT EXISTS `operation_log` (
 --    - uk_competition_user：同一竞赛同一学生仅能报名一次（防重复报名 / 团队成员唯一性）。
 --    - uk_competition_teacher：同一竞赛同一教师的指导名额仅一份。
 --    - uk_registration_teacher：同一团队对同一教师仅一条指导关系。
---    - uk_competition_registration：同一团队在同一竞赛下仅一条获奖记录。
+--    - uk_achievement：同一团队的同名、同等级、同日成果不可重复登记；不同成果分别关联实际获奖学生及教师。
 -- ======================================================================

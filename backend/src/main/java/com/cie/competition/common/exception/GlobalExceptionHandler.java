@@ -17,6 +17,17 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler({
+            org.springframework.validation.BindException.class,
+            org.springframework.beans.TypeMismatchException.class,
+            org.springframework.web.bind.ServletRequestBindingException.class,
+            org.springframework.web.multipart.support.MissingServletRequestPartException.class,
+            org.springframework.web.multipart.MultipartException.class
+    })
+    public Result<Void> handleRequestBinding(Exception e) {
+        return Result.fail(ResultCode.BAD_REQUEST.getCode(), "请求参数或上传格式不合法");
+    }
+
     @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
     public Result<Void> handleUploadSize(org.springframework.web.multipart.MaxUploadSizeExceededException e) {
         return Result.fail(ResultCode.BAD_REQUEST.getCode(), "文件不能超过10MB");

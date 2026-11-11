@@ -1,0 +1,9 @@
+# 测试环境使用独立数据库和签名密钥，不复用生产凭据。
+spring:
+  datasource:
+    url: ${TEST_DB_URL}
+    username: ${TEST_DB_USERNAME}
+    password: ${TEST_DB_PASSWORD}
+
+jwt:
+  secret: ${TEST_JWT_SECRET}

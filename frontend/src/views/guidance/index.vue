@@ -18,7 +18,12 @@
           <el-table-column prop="competitionTitle" label="竞赛名称" min-width="180" show-overflow-tooltip />
           <el-table-column prop="teamName" label="团队名称" min-width="150" show-overflow-tooltip />
           <el-table-column prop="assignTime" label="分配时间" width="170" />
-          <el-table-column label="操作" width="100"><template #default="{ row }"><el-button link type="primary" @click="router.push({ path: '/registration', query: { detail: row.registrationId } })">团队详情</el-button></template></el-table-column>
+          <el-table-column label="状态" width="100"><template #default="{ row }">{{ row.status === 'COMPLETED' ? '已完成' : '指导中' }}</template></el-table-column>
+          <el-table-column label="操作" min-width="300"><template #default="{ row }">
+            <el-button link type="primary" @click="router.push({ path: '/registration', query: { detail: row.registrationId } })">团队详情</el-button>
+            <el-button v-if="row.status === 'ACTIVE'" link type="success" @click="finish(row)">完成指导</el-button>
+            <el-button link type="primary" @click="openResults(row)">登记学生结果</el-button>
+          </template></el-table-column>
         </el-table>
         <div class="pagination-wrapper">
           <el-pagination
@@ -109,6 +114,17 @@
       </el-tabs>
     </PageContainer>
 
+    <el-dialog v-model="resultsVisible" title="逐学生登记参赛结果" width="760px" :close-on-click-modal="false">
+      <el-alert title="保存结果不会自动退赛或生成获奖申报。获奖后请前往获奖记录填写申报及上传材料。" type="info" :closable="false" />
+      <el-table :data="studentResults" style="margin-top:16px">
+        <el-table-column prop="name" label="学生" min-width="100" />
+        <el-table-column label="是否参赛" width="130"><template #default="{row}"><el-select v-model="row.participated" @change="!row.participated && (row.won = false)"><el-option label="参赛" :value="true"/><el-option label="未参赛" :value="false"/></el-select></template></el-table-column>
+        <el-table-column label="是否获奖" width="130"><template #default="{row}"><el-select v-if="row.participated" v-model="row.won"><el-option label="获奖" :value="true"/><el-option label="未获奖" :value="false"/></el-select><span v-else>—</span></template></el-table-column>
+        <el-table-column label="备注" min-width="160"><template #default="{row}"><el-input v-model="row.remark" maxlength="1000"/></template></el-table-column>
+        <el-table-column label="操作" width="80"><template #default="{row}"><el-button link type="primary" :disabled="row.participated == null || (row.participated && row.won == null)" @click="saveResult(row)">保存</el-button></template></el-table-column>
+      </el-table>
+      <template #footer><el-button @click="resultsVisible=false">关闭</el-button><el-button type="primary" @click="resultsVisible=false; router.push('/award')">前往成果申报</el-button></template>
+    </el-dialog>
     <!-- 名额设置弹窗 -->
     <el-dialog v-model="quotaDialogVisible" :title="quotaForm.id ? '编辑名额' : '设置名额'" width="480px" :close-on-click-modal="false" @close="resetQuotaForm">
       <el-form ref="quotaFormRef" :model="quotaForm" :rules="quotaRules" label-width="80px">
@@ -193,6 +209,7 @@ import {
   replaceGuidance,
   competitionTeachers,
   pageMyGuidance,
+  completeGuidance, guidanceResults, saveParticipationResult,
   pageMyCompetitions
 } from '@/api/guidance'
 
@@ -213,6 +230,24 @@ const mineQuery = reactive({ current: 1, size: 10 })
 const myCompetitions = ref([])
 const competitionTotal = ref(0)
 const competitionQuery = reactive({ current: 1, size: 10 })
+const resultsVisible = ref(false), studentResults = ref([]), resultGuidanceId = ref(null)
+async function finish(row) {
+  try { await ElMessageBox.confirm('确认完成指导？完成后将释放该团队占用的一个名额，仍可登记结果和申报获奖。', '完成指导', { type: 'warning' }) }
+  catch (e) { if (e === 'cancel' || e === 'close') return; throw e }
+  await completeGuidance(row.id)
+  ElMessage.success('指导已完成，名额已释放')
+  await Promise.all([loadMine(), loadMyCompetitions()])
+}
+async function openResults(row) {
+  const res = await guidanceResults(row.id)
+  resultGuidanceId.value = row.id
+  studentResults.value = res.data
+  resultsVisible.value = true
+}
+async function saveResult(row) {
+  await saveParticipationResult(resultGuidanceId.value, row.studentId, { participated: row.participated, won: row.participated ? row.won : false, remark: row.remark })
+  ElMessage.success('结果已保存')
+}
 async function loadMyCompetitions() {
   const res = await pageMyCompetitions(competitionQuery)
   myCompetitions.value = res.data.records

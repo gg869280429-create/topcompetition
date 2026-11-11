@@ -19,6 +19,9 @@ public class StatisticsOverviewVO {
     private Long effectiveRegistrationCount;
 
     private Long awardCount;
+    private Long awardTeamCount;
+    private Long awardStudentCount;
+    private Long teacherAchievementCount;
 
     private Long studentCount;
 

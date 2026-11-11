@@ -12,7 +12,7 @@
         <el-table-column prop="majorName" label="所属专业" min-width="150" />
         <el-table-column prop="expertise" label="擅长方向" min-width="180" show-overflow-tooltip />
         <el-table-column label="状态" width="90"><template #default="{ row }"><el-tag :type="row.status === 1 ? 'success' : 'info'">{{ row.status === 1 ? '启用' : '停用' }}</el-tag></template></el-table-column>
-        <el-table-column label="操作" width="90"><template #default="{ row }"><el-button link type="primary" @click="open(row)">编辑</el-button></template></el-table-column>
+        <el-table-column label="操作" width="140"><template #default="{ row }"><el-button link type="primary" @click="detail(row)">详情</el-button><el-button link type="primary" @click="open(row)">编辑</el-button></template></el-table-column>
       </el-table>
       <el-pagination v-model:current-page="query.current" v-model:page-size="query.size" :total="total" layout="total, prev, pager, next" @current-change="load" style="margin-top: 16px; justify-content: flex-end" />
     </PageContainer>
@@ -28,12 +28,28 @@
       </el-form>
       <template #footer><el-button @click="visible = false">取消</el-button><el-button type="primary" :loading="saving" @click="save">保存</el-button></template>
     </el-dialog>
+    <el-dialog v-model="detailVisible" :title="`教师详情 · ${selectedTeacher.realName || selectedTeacher.username || ''}`" width="850px">
+      <el-descriptions :column="2" border>
+        <el-descriptions-item label="所属专业">{{ selectedTeacher.majorName || '未配置' }}</el-descriptions-item>
+        <el-descriptions-item label="擅长方向">{{ selectedTeacher.expertise || '—' }}</el-descriptions-item>
+        <el-descriptions-item label="简介" :span="2">{{ selectedTeacher.biography || '—' }}</el-descriptions-item>
+      </el-descriptions>
+      <el-table :data="quotaDetails" style="margin-top:20px">
+        <el-table-column prop="competitionTitle" label="竞赛" min-width="160"/>
+        <el-table-column prop="quota" label="总名额" width="85"/>
+        <el-table-column prop="assigned" label="占用" width="75"/>
+        <el-table-column prop="remaining" label="剩余" width="75"/>
+        <el-table-column label="增加总名额" min-width="220"><template #default="{row}"><el-input-number v-model="row.increase" :min="1" :max="10000" size="small" style="width:110px"/><el-button link type="primary" :disabled="['ENDED','CANCELLED'].includes(row.competitionStatus)" @click="increase(row)">增加</el-button></template></el-table-column>
+      </el-table>
+      <el-empty v-if="!quotaDetails.length" description="尚未配置竞赛指导名额"/>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted, nextTick } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { teacherQuotaDetails, increaseTeacherQuota } from '@/api/guidance'
 import PageHeader from '@/components/PageHeader.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import { pageTeacher, listMajors, createTeacher, updateTeacher } from '@/api/teacher'
@@ -43,6 +59,20 @@ const rows = ref([]), total = ref(0), loading = ref(false), saving = ref(false),
 const query = reactive({ keyword: '', current: 1, size: 10 })
 const empty = () => ({ id: null, username: '', password: '', realName: '', majorId: null, expertise: '', biography: '', status: 1 })
 const form = reactive(empty())
+const detailVisible = ref(false), selectedTeacher = ref({}), quotaDetails = ref([])
+async function detail(row) {
+  const res = await teacherQuotaDetails(row.id)
+  selectedTeacher.value = row
+  quotaDetails.value = res.data.map(q => ({ ...q, increase: 1 }))
+  detailVisible.value = true
+}
+async function increase(row) {
+  try { await ElMessageBox.confirm(`确认给该竞赛增加 ${row.increase} 个指导总名额？`, '增加名额', { type: 'warning' }) }
+  catch (e) { if (e === 'cancel' || e === 'close') return; throw e }
+  await increaseTeacherQuota(selectedTeacher.value.id, row.competitionId, row.increase)
+  ElMessage.success('总名额已增加')
+  await detail(selectedTeacher.value)
+}
 const allowedMajors = computed(() => majors.value.filter(m => user.role !== 'MAJOR_ADMIN' || m.id === user.userInfo?.majorId))
 const rules = {
   username: [{ required: true, message: '请输入登录账号', trigger: 'blur' }, { pattern: /^[a-zA-Z0-9_]+$/, message: '仅支持字母、数字和下划线', trigger: 'blur' }],

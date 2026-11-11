@@ -1,0 +1,9 @@
+# 生产凭据由部署环境提供，禁止在此填写真实值。
+spring:
+  datasource:
+    url: ${PROD_DB_URL}
+    username: ${PROD_DB_USERNAME}
+    password: ${PROD_DB_PASSWORD}
+
+jwt:
+  secret: ${PROD_JWT_SECRET}

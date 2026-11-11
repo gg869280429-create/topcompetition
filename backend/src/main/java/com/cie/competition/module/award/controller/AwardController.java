@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AwardController {
 
     private final AwardService awardService;
+    private final com.cie.competition.module.award.service.AchievementWorkflowService workflow;
     private final com.cie.competition.module.file.service.FileService fileService;
 
     @GetMapping("/{id}/history")
@@ -39,9 +40,9 @@ public class AwardController {
     }
 
     @PutMapping("/{id}/correction")
-    @PreAuthorize("hasAnyRole('ADMIN','MAJOR_ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','MAJOR_ADMIN','TEACHER')")
     public Result<Void> correct(@PathVariable Long id, @Valid @RequestBody AwardDTO dto) {
-        awardService.correct(id, dto);
+        workflow.save(id,dto,true);
         return Result.success();
     }
 
@@ -63,15 +64,15 @@ public class AwardController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN','MAJOR_ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','MAJOR_ADMIN','TEACHER')")
     public Result<Long> create(@Valid @RequestBody AwardDTO dto) {
-        return Result.success(awardService.create(dto));
+        return Result.success(workflow.save(null,dto,false));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','MAJOR_ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','MAJOR_ADMIN','TEACHER')")
     public Result<Void> update(@PathVariable Long id, @Valid @RequestBody AwardDTO dto) {
-        awardService.update(id, dto);
+        workflow.save(id,dto,false);
         return Result.success();
     }
 
@@ -85,7 +86,14 @@ public class AwardController {
     @PutMapping("/{id}/review")
     @PreAuthorize("hasAnyRole('ADMIN','MAJOR_ADMIN')")
     public Result<Void> review(@PathVariable Long id, @Valid @RequestBody AwardReviewDTO dto) {
-        awardService.review(id, dto);
+        workflow.review(id,dto);
         return Result.success();
     }
-}
+    @PostMapping("/{id}/submit")
+    public Result<Void> submit(@PathVariable Long id){workflow.submit(id);return Result.success();}
+    @GetMapping("/celebrations")
+    public Result<?> celebrations(){return Result.success(workflow.pendingCelebrations());}
+    @PostMapping("/{id}/celebrate")
+    public Result<Boolean> celebrate(@PathVariable Long id){return Result.success(workflow.claimCelebration(id));}
+    @GetMapping("/{id}/materials/{fileId}")
+    public org.springframework.http.ResponseEntity<org.springframework.core.io.Resource> material(@PathVariable Long id,@PathVariable Long fileId){return workflow.material(id,fileId);}}

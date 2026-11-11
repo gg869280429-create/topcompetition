@@ -30,6 +30,7 @@ public class MessageServiceImpl implements MessageService {
 
     private final MessageMapper messageMapper;
     private final UserService userService;
+    private final com.cie.competition.module.user.mapper.UserMapper userMapper;
 
     @Override
     public PageResult<MessageVO> pageMine(MessageQueryDTO query) {
@@ -90,6 +91,10 @@ public class MessageServiceImpl implements MessageService {
 
     @Override
     public Long send(MessageDTO dto) {
+        var receiver = userMapper.selectById(dto.getReceiverId());
+        if (receiver == null || !Integer.valueOf(1).equals(receiver.getStatus())) {
+            throw new BusinessException("接收人不存在或账号已停用");
+        }
         Message message = buildMessage(UserContext.getUserId(), dto.getReceiverId(),
                 dto.getTitle(), dto.getContent(), dto.getType());
         messageMapper.insert(message);

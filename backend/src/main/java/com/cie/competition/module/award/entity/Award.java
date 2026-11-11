@@ -16,6 +16,12 @@ public class Award {
 
     @TableId(type = IdType.AUTO)
     private Long id;
+    private String achievementName;
+    private String achievementKey;
+    private Integer legacyRecord = 1;
+    private Long officialListFileId;
+    private Long registrationScreenshotFileId;
+    private String processPhotoFileIds;
 
     private Long competitionId;
 

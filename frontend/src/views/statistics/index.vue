@@ -63,7 +63,10 @@ const cards = computed(() => [
   { label: '报名团队数', value: overview.value.registrationCount ?? 0 },
   { label: '报名人数（按竞赛去重）', value: overview.value.registrationPeopleCount ?? 0 },
   { label: '有效参赛团队数', value: overview.value.effectiveRegistrationCount ?? 0 },
-  { label: '有效获奖团队数', value: overview.value.awardCount ?? 0 },
+  { label: '获奖成果数', value: overview.value.awardCount ?? 0 },
+  { label: '获奖团队数', value: overview.value.awardTeamCount ?? 0 },
+  { label: '获奖学生数', value: overview.value.awardStudentCount ?? 0 },
+  { label: '教师指导成果数', value: overview.value.teacherAchievementCount ?? 0 },
   { label: '学生人数', value: overview.value.studentCount ?? 0 },
   { label: '教师人数', value: overview.value.teacherCount ?? 0 },
   { label: '指导中团队', value: overview.value.guidanceCount ?? 0 }

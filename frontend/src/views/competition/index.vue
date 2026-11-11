@@ -40,7 +40,7 @@
         </el-form-item>
       </el-form>
 
-      <el-table v-loading="loading" :data="list" border stripe>
+      <el-table class="competition-table" v-loading="loading" :data="list" border stripe>
         <el-table-column prop="title" label="竞赛名称" min-width="200" show-overflow-tooltip />
         <el-table-column label="级别" width="100">
           <template #default="{ row }">{{ COMPETITION_LEVEL[row.level] || row.level }}</template>
@@ -48,6 +48,7 @@
         <el-table-column label="赛制" width="90">
           <template #default="{ row }">{{ COMPETITION_TYPE[row.competitionType] || row.competitionType }}</template>
         </el-table-column>
+        <el-table-column label="所属专业" min-width="170"><template #default="{row}">{{ row.majorName || '待补录专业' }} <el-button v-if="canManage(row)" link type="primary" @click="openClassification(row)">{{ row.majorId ? '调整分类' : '补录' }}</el-button></template></el-table-column>
         <el-table-column prop="category" label="类别" width="120" show-overflow-tooltip />
         <el-table-column label="报名时间" width="200" show-overflow-tooltip>
           <template #default="{ row }">
@@ -63,11 +64,10 @@
             <el-tag :type="statusTagType(row.status)">{{ COMPETITION_STATUS[row.status] || row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" :width="isAdmin ? 240 : 80" fixed="right">
+        <el-table-column label="操作" :width="isAdmin ? 330 : 80" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="openDetail(row)">详情</el-button>
             <template v-if="canManage(row)">
-              <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
+              <el-button link type="primary" :disabled="['ENDED','CANCELLED'].includes(row.status)" @click="openEdit(row)">编辑</el-button>
               <el-button v-if="row.status === 'DRAFT'" link type="success" @click="changeStatus(row, 'REGISTERING')">发布</el-button>
               <el-button
                 v-else-if="row.status === 'REGISTERING'"
@@ -96,6 +96,10 @@
       </div>
     </PageContainer>
 
+    <el-dialog v-model="classificationVisible" title="维护所属专业分类" width="460px">
+      <el-form label-width="90px"><el-form-item label="所属专业" required><el-select v-model="classification.majorId" style="width:100%"><el-option v-for="major in majors" :key="major.id" :label="major.name" :value="major.id"/></el-select></el-form-item></el-form>
+      <template #footer><el-button @click="classificationVisible=false">取消</el-button><el-button type="primary" :loading="submitting" @click="saveClassification">保存</el-button></template>
+    </el-dialog>
     <!-- 新增 / 编辑弹窗 -->
     <el-dialog
       v-model="dialogVisible"
@@ -105,6 +109,7 @@
       @close="resetForm"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
+        <el-form-item label="所属专业" prop="majorId"><el-select v-model="form.majorId" clearable placeholder="发布前请选择专业" style="width:100%"><el-option v-for="m in majors" :key="m.id" :label="m.name" :value="m.id" /></el-select></el-form-item>
         <el-form-item label="竞赛名称" prop="title">
           <el-input v-model="form.title" maxlength="128" show-word-limit />
         </el-form-item>
@@ -208,6 +213,7 @@
         <el-descriptions-item label="竞赛名称" :span="2">{{ detail.title }}</el-descriptions-item>
         <el-descriptions-item label="赛制">{{ COMPETITION_TYPE[detail.competitionType] || detail.competitionType }}</el-descriptions-item>
         <el-descriptions-item label="级别">{{ COMPETITION_LEVEL[detail.level] || detail.level }}</el-descriptions-item>
+        <el-descriptions-item label="所属专业">{{ detail.majorName || '待补录' }}</el-descriptions-item>
         <el-descriptions-item label="学科类别">{{ detail.category || '-' }}</el-descriptions-item>
         <el-descriptions-item label="主办单位">{{ detail.organizer || '-' }}</el-descriptions-item>
         <el-descriptions-item label="团队人数上限">{{ detail.maxMembers }}</el-descriptions-item>
@@ -237,6 +243,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import CompetitionTeacherConfig from '@/components/CompetitionTeacherConfig.vue'
 import CompetitionResources from '@/components/CompetitionResources.vue'
+import { listMajors } from '@/api/teacher'
 import { pageQuota } from '@/api/guidance'
 import { uploadFile } from '@/api/file'
 import { useUserStore } from '@/store/user'
@@ -248,6 +255,7 @@ import {
   deleteCompetition,
   updateCompetitionStatus
 } from '@/api/competition'
+import { updateCompetitionMajor } from '@/api/competition'
 import { COMPETITION_TYPE, COMPETITION_LEVEL, COMPETITION_STATUS } from '@/constants/dict'
 
 const route = useRoute()
@@ -263,6 +271,15 @@ const submitting = ref(false)
 const uploadingDocument = ref(false)
 const loadingTeachers = ref(false)
 const list = ref([])
+const majors = ref([])
+const classificationVisible=ref(false), classification=reactive({id:null,majorId:null})
+function openClassification(row){classification.id=row.id;classification.majorId=row.majorId;classificationVisible.value=true}
+async function saveClassification(){
+  if(!classification.majorId){ElMessage.warning('请选择专业');return}
+  submitting.value=true
+  try{await updateCompetitionMajor(classification.id,classification.majorId);classificationVisible.value=false;ElMessage.success('分类已保存');await fetchList()}
+  finally{submitting.value=false}
+}
 const total = ref(0)
 const query = reactive({
   current: 1,
@@ -283,6 +300,7 @@ const competitionRange = ref([])
 const defaultForm = () => ({
   id: null,
   managerId: null,
+  majorId: null,
   title: '',
   competitionType: 'TEAM',
   level: 'SCHOOL',
@@ -359,6 +377,7 @@ async function openEdit(row) {
   Object.assign(form, {
     id: row.id,
     managerId: row.managerId,
+    majorId: row.majorId,
     title: row.title,
     competitionType: row.competitionType,
     level: row.level,
@@ -409,6 +428,7 @@ function handleSubmit() {
       const payload = {
         title: form.title,
         managerId: form.managerId || null,
+        majorId: form.majorId || null,
         competitionType: form.competitionType,
         level: form.level,
         category: form.category,
@@ -474,11 +494,15 @@ async function cancelCompetition(row) {
   }
 }
 
+watch(() => [route.query.edit, route.query.open], async ([id]) => { if (id) openEdit((await getCompetition(Number(id))).data) })
 watch(() => [route.query.detail, route.query.open], ([id]) => { if (id) openDetail({ id: Number(id) }) })
-onMounted(() => { fetchList(); if (route.query.detail) openDetail({ id: Number(route.query.detail) }) })
+onMounted(async () => { majors.value = (await listMajors()).data; fetchList(); if (route.query.edit) openEdit((await getCompetition(Number(route.query.edit))).data); if (route.query.detail) openDetail({ id: Number(route.query.detail) }) })
 </script>
 
 <style scoped>
+.competition-table { font-size:13px; }
+.competition-table :deep(.el-table__fixed-right .cell), .competition-table :deep(td:last-child .cell) { white-space:nowrap; }
+.competition-table :deep(.el-table__body-wrapper) { overflow-x:auto; }
 .search-form {
   margin-bottom: var(--spacing-sm);
 }

@@ -31,4 +31,5 @@ public class GuidanceVO {
     private LocalDateTime endedTime;
 
     private String endReason;
+    private String membersSnapshot;
 }

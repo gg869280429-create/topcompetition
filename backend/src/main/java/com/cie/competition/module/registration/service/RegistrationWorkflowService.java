@@ -180,6 +180,8 @@ public class RegistrationWorkflowService {
 
  public Map<String,Object> details(Long id) {
   var r=registrations.selectById(id);if(r==null)throw new BusinessException("报名不存在");readable(r);
+  if("TEACHER".equals(UserContext.get().getRole()) && jdbc.queryForObject("SELECT COUNT(*) FROM guidance WHERE registration_id=? AND teacher_id=? AND status='ACTIVE'",Integer.class,id,UserContext.getUserId())==0)
+   return Map.of("history",List.of(),"invitations",List.of(),"withdrawals",List.of());
   Map<String,Object> result=new LinkedHashMap<>();result.put("history",history.list("REGISTRATION",id));result.put("invitations",invitations.selectList(new LambdaQueryWrapper<TeamInvitation>().eq(TeamInvitation::getRegistrationId,id)));result.put("withdrawals",withdrawals.selectList(new LambdaQueryWrapper<WithdrawalRequest>().eq(WithdrawalRequest::getRegistrationId,id)));return result;
  }
  private void release(Long id) {members.update(null,new LambdaUpdateWrapper<RegistrationMember>().eq(RegistrationMember::getRegistrationId,id).set(RegistrationMember::getActiveKey,null));}
@@ -189,7 +191,7 @@ public class RegistrationWorkflowService {
   if("ADMIN".equals(role))return;
   if("MAJOR_ADMIN".equals(role)){adminScope(r);return;}
   if("STUDENT".equals(role)&&members.selectCount(new LambdaQueryWrapper<RegistrationMember>().eq(RegistrationMember::getRegistrationId,r.getId()).eq(RegistrationMember::getUserId,UserContext.getUserId()).and(w->w.isNotNull(RegistrationMember::getNameSnapshot).or().eq(RegistrationMember::getMemberRole,"LEADER")))>0)return;
-  if("TEACHER".equals(role)&&jdbc.queryForObject("SELECT COUNT(*) FROM guidance WHERE registration_id=? AND teacher_id=? AND status='ACTIVE'",Long.class,r.getId(),UserContext.getUserId())>0)return;
+  if("TEACHER".equals(role)&&jdbc.queryForObject("SELECT COUNT(*) FROM guidance WHERE registration_id=? AND teacher_id=? AND status IN ('ACTIVE','COMPLETED')",Long.class,r.getId(),UserContext.getUserId())>0)return;
   throw new BusinessException(403,"无权查看报名历史");
  }
  private Registration lock(Long id){var previous=registrations.selectById(id);if(previous==null)throw new BusinessException("报名不存在");competitions.lockById(previous.getCompetitionId());var r=registrations.lockById(id);if(r==null)throw new BusinessException("报名不存在");return r;}

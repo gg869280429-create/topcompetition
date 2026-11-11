@@ -140,11 +140,11 @@ public class AwardServiceImpl implements AwardService {
         return user;
     }
     private void requireManager(){String role=requireReader().getRole();if(!Set.of("ADMIN","MAJOR_ADMIN").contains(role))throw new BusinessException(403,"无权限管理获奖记录");}
-    private void authorize(Award award){LoginUser user=requireReader();if("MAJOR_ADMIN".equals(user.getRole())){if(!Objects.equals(awardMapper.selectMajorId(user.getUserId()),award.getMajorId()))throw new BusinessException(403,"无权限查看其他专业获奖");}else if("STUDENT".equals(user.getRole())){if(!participantIds(award).contains(user.getUserId()))throw new BusinessException(403,"无权限查看该获奖");}else if(!"ADMIN".equals(user.getRole()))registrationService.getById(award.getRegistrationId());}
+    private void authorize(Award award){LoginUser user=requireReader();if("TEACHER".equals(user.getRole()) && Integer.valueOf(0).equals(award.getLegacyRecord())){if(jdbc.queryForObject("SELECT COUNT(*) FROM award_teacher WHERE award_id=? AND teacher_id=?",Integer.class,award.getId(),user.getUserId())==0 && !Objects.equals(award.getRegistrantId(),user.getUserId()))throw new BusinessException(403,"无权查看其他教师成果");return;}if("MAJOR_ADMIN".equals(user.getRole())){if(!Objects.equals(awardMapper.selectMajorId(user.getUserId()),award.getMajorId()))throw new BusinessException(403,"无权限查看其他专业获奖");}else if("STUDENT".equals(user.getRole())){if(!participantIds(award).contains(user.getUserId()))throw new BusinessException(403,"无权限查看该获奖");}else if(!"ADMIN".equals(user.getRole()))registrationService.getById(award.getRegistrationId());}
     private void applyScope(LambdaQueryWrapper<Award> wrapper){LoginUser user=requireReader();long id=user.getUserId();switch(user.getRole()){
         case "MAJOR_ADMIN"->wrapper.eq(Award::getMajorId,awardMapper.selectMajorId(id));
-        case "STUDENT"->wrapper.apply("JSON_CONTAINS(COALESCE(participants_snapshot, '[]'), JSON_OBJECT('userId', {0}))",id);
-        case "TEACHER"->wrapper.inSql(Award::getRegistrationId,"SELECT registration_id FROM guidance WHERE status = 'ACTIVE' AND teacher_id = "+id);
+        case "STUDENT"->wrapper.eq(Award::getStatus,"APPROVED").apply("((legacy_record=1 AND JSON_CONTAINS(COALESCE(participants_snapshot, '[]'), JSON_OBJECT('userId', {0}))) OR id IN (SELECT award_id FROM award_student WHERE student_id={0}))",id);
+        case "TEACHER"->wrapper.apply("(id IN (SELECT award_id FROM award_teacher WHERE teacher_id={0}) OR registrant_id={0} OR (legacy_record=1 AND registration_id IN (SELECT registration_id FROM guidance WHERE status IN ('ACTIVE','COMPLETED') AND teacher_id={0})))",id);
         default->{} }}
 
     private void snapshot(Award award,RegistrationVO reg){
@@ -157,12 +157,13 @@ public class AwardServiceImpl implements AwardService {
     private void recordAndNotify(String operation,Award before,Award award,String reason){
         historyService.record("AWARD",award.getId(),operation,before,award,reason);
         Set<Long> receivers=new LinkedHashSet<>(participantIds(award));
-        receivers.addAll(jdbc.queryForList("SELECT teacher_id FROM guidance WHERE registration_id=? AND status='ACTIVE'",Long.class,award.getRegistrationId()));
+        if(Integer.valueOf(0).equals(award.getLegacyRecord()))receivers.addAll(jdbc.queryForList("SELECT teacher_id FROM award_teacher WHERE award_id=?",Long.class,award.getId()));
+        else receivers.addAll(jdbc.queryForList("SELECT teacher_id FROM guidance WHERE registration_id=? AND status IN ('ACTIVE','COMPLETED')",Long.class,award.getRegistrationId()));
         for(Long receiver:receivers)messageService.sendBusinessMessage(receiver,"获奖记录更新","获奖记录"+award.getId()+"："+operation+(StringUtils.hasText(reason)?"，原因："+reason:""),"SYSTEM","AWARD",award.getId());
     }
     private Set<Long> participantIds(Award award){
         Set<Long> result=new LinkedHashSet<>();
-        if(award.getParticipantsSnapshot()==null)return result;
+        if(Integer.valueOf(0).equals(award.getLegacyRecord()))return new LinkedHashSet<>(jdbc.queryForList("SELECT student_id FROM award_student WHERE award_id=?",Long.class,award.getId()));if(award.getParticipantsSnapshot()==null)return result;
         try{for(var person:json.readTree(award.getParticipantsSnapshot()))if(person.hasNonNull("userId"))result.add(person.get("userId").asLong());}
         catch(JsonProcessingException e){throw new IllegalStateException("获奖人员快照无效",e);}
         return result;
@@ -172,6 +173,6 @@ public class AwardServiceImpl implements AwardService {
         List<String> titles=jdbc.queryForList("SELECT title FROM competition WHERE id=?",String.class,award.getCompetitionId());
         if(!titles.isEmpty())vo.setCompetitionTitle(titles.get(0));
         List<String> names=jdbc.queryForList("SELECT leader_name_snapshot FROM registration WHERE id=?",String.class,award.getRegistrationId());
-        if(!names.isEmpty())vo.setLeaderName(names.get(0));return vo;
+        if(!names.isEmpty())vo.setLeaderName(names.get(0));vo.setStudents(jdbc.queryForList("SELECT student_id AS userId,name_snapshot AS name,major_id_snapshot AS majorId,major_name_snapshot AS majorName FROM award_student WHERE award_id=? ORDER BY id",award.getId()));vo.setTeachers(jdbc.queryForList("SELECT teacher_id AS userId,name_snapshot AS name FROM award_teacher WHERE award_id=? ORDER BY id",award.getId()));return vo;
     }
 }

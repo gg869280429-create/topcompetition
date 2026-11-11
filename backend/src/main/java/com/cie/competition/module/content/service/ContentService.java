@@ -10,6 +10,8 @@ public interface ContentService {
     PageResult<ContentVO> page(ContentQueryDTO query);
 
     ContentVO getById(Long id);
+    java.util.List<ContentVO> carousel();
+    Long coverFileId(Long id);
 
     Long create(ContentDTO dto);
 

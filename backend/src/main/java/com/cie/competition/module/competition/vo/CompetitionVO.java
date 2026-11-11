@@ -12,6 +12,9 @@ public class CompetitionVO {
 
     private Long id;
 
+    private Long majorId;
+    private String majorName;
+
     private String title;
 
     private String competitionType;

@@ -2,6 +2,9 @@ server:
   port: 8080
 
 spring:
+  profiles:
+    # 本机 local / 测试 test / 生产 prod；IDE 或 SPRING_PROFILES_ACTIVE 可覆盖。
+    default: local
   application:
     name: competition-backend
   servlet:

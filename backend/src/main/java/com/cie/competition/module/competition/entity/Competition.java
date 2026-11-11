@@ -17,6 +17,8 @@ public class Competition {
     @TableId(type = IdType.AUTO)
     private Long id;
 
+    private Long majorId;
+
     private String title;
 
     /** 赛制：PERSONAL 个人赛 / TEAM 团队赛 */

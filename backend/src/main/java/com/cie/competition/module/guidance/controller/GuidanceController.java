@@ -27,6 +27,27 @@ import java.util.List;
 public class GuidanceController {
 
     private final GuidanceService guidanceService;
+    private final com.cie.competition.module.guidance.service.GuidanceCompletionService completion;
+
+    @PostMapping("/{id}/complete")
+    @PreAuthorize("hasRole('TEACHER')")
+    public Result<Void> complete(@PathVariable Long id) { completion.complete(id);return Result.success(); }
+
+    @GetMapping("/{id}/results")
+    @PreAuthorize("hasRole('TEACHER')")
+    public Result<?> results(@PathVariable Long id) { return Result.success(completion.results(id)); }
+
+    @org.springframework.web.bind.annotation.PutMapping("/{id}/results/{studentId}")
+    @PreAuthorize("hasRole('TEACHER')")
+    public Result<Void> saveResult(@PathVariable Long id,@PathVariable Long studentId,@Valid @RequestBody com.cie.competition.module.guidance.dto.ParticipationResultDTO dto) { completion.saveResult(id,studentId,dto);return Result.success(); }
+
+    @GetMapping("/teacher/{teacherId}/quotas")
+    @PreAuthorize("hasAnyRole('ADMIN','MAJOR_ADMIN')")
+    public Result<?> teacherQuotas(@PathVariable Long teacherId) { return Result.success(completion.teacherQuotas(teacherId)); }
+
+    @PostMapping("/teacher/{teacherId}/quotas/{competitionId}/increase")
+    @PreAuthorize("hasAnyRole('ADMIN','MAJOR_ADMIN')")
+    public Result<Void> increaseQuota(@PathVariable Long teacherId,@PathVariable Long competitionId,@Valid @RequestBody com.cie.competition.module.guidance.dto.QuotaIncreaseDTO dto) { completion.increaseQuota(teacherId,competitionId,dto.getAmount());return Result.success(); }
 
     @GetMapping("/quota/page")
     @PreAuthorize("hasAnyRole('ADMIN','MAJOR_ADMIN')")

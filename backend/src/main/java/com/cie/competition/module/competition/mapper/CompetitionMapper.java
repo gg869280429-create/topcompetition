@@ -22,7 +22,7 @@ public interface CompetitionMapper extends BaseMapper<Competition> {
     @Select("SELECT COUNT(*) FROM sys_user WHERE id=#{id} AND status=1 AND role IN ('ADMIN','MAJOR_ADMIN')")
     long countActiveManager(Long id);
 
-    @Select("SELECT user_id FROM registration_member WHERE competition_id=#{id} UNION SELECT leader_id FROM registration WHERE competition_id=#{id}")
+    @Select("SELECT user_id FROM registration_member WHERE competition_id=#{id} UNION SELECT leader_id FROM registration WHERE competition_id=#{id} UNION SELECT teacher_id FROM guidance WHERE competition_id=#{id} UNION SELECT i.invitee_id FROM team_invitation i JOIN registration r ON r.id=i.registration_id WHERE r.competition_id=#{id}")
     List<Long> listParticipantIds(Long id);
 
     /** 查询已有教师指导名额的竞赛 ID 集合。 */

@@ -56,6 +56,7 @@
     </el-container>
 
     <MessageDrawer v-model="messageVisible" :unread="unread" @refresh="fetchUnread" />
+    <AwardCelebration v-if="userStore.role === 'TEACHER'" />
   </el-container>
 </template>
 
@@ -65,6 +66,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/store/user'
 import MessageDrawer from '@/components/MessageDrawer.vue'
+import AwardCelebration from '@/components/AwardCelebration.vue'
 import { unreadCount } from '@/api/message'
 
 const route = useRoute()
@@ -85,11 +87,14 @@ const menuConfig = [
   { path: '/registration', title: '报名管理', icon: 'Tickets', roles: ['ADMIN', 'MAJOR_ADMIN', 'STUDENT'] },
   { path: '/guidance', title: '指导管理', icon: 'UserFilled', roles: ['ADMIN', 'MAJOR_ADMIN', 'TEACHER'] },
   { path: '/award', title: '获奖记录', icon: 'Medal', roles: ['ADMIN', 'MAJOR_ADMIN', 'TEACHER', 'STUDENT'] },
-  { path: '/content', title: '内容管理', icon: 'Document', roles: ['ADMIN', 'MAJOR_ADMIN'] },
+  { path: '/content', title: '新闻资讯', icon: 'Document', roles: ['ADMIN', 'MAJOR_ADMIN', 'TEACHER', 'STUDENT'] },
+  { path: '/major', title: '专业管理', icon: 'School', roles: ['ADMIN'] },
+  { path: '/student', title: '学生管理', icon: 'User', roles: ['ADMIN', 'MAJOR_ADMIN'] },
   { path: '/teacher', title: '教师库', icon: 'UserFilled', roles: ['ADMIN', 'MAJOR_ADMIN'] },
   { path: '/statistics', title: '统计中心', icon: 'Histogram', roles: ['ADMIN', 'MAJOR_ADMIN'] }
 ]
-const visibleMenus = computed(() => menuConfig.filter((m) => m.roles.includes(userStore.role)))
+const visibleMenus = computed(() => menuConfig.filter((m) => m.roles.includes(userStore.role)).map(m =>
+  m.path === '/content' && ['ADMIN','MAJOR_ADMIN'].includes(userStore.role) ? { ...m, title: '新闻管理' } : m))
 
 const unread = ref(0)
 const messageVisible = ref(false)

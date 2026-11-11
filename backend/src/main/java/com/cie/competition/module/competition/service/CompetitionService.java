@@ -29,6 +29,8 @@ public interface CompetitionService {
 
     void update(Long id, CompetitionDTO dto);
 
+    void updateMajor(Long id, Long majorId);
+
     void delete(Long id);
 
     default void updateStatus(Long id, String status) { updateStatus(id, status, null); }

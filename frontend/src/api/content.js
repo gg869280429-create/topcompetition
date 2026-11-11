@@ -23,3 +23,7 @@ export function deleteContent(id) {
 export function updateContentStatus(id, status) {
   return request.put(`/content/${id}/status`, null, { params: { status } })
 }
+
+export function contentCarousel() { return request.get('/content/carousel') }
+export function getContentCover(id) { return request.get(`/content/${id}/cover`, { responseType: 'blob' }) }
+export function uploadContentCover(file) { const data=new FormData(); data.append('file',file); return request.post('/file/content-cover',data) }

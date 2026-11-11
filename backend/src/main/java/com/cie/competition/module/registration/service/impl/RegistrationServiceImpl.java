@@ -192,7 +192,7 @@ public class RegistrationServiceImpl implements RegistrationService {
         if ("TEACHER".equals(login.getRole())) {
             Long count = guidanceMapper.selectCount(new LambdaQueryWrapper<Guidance>()
                     .eq(Guidance::getRegistrationId, registration.getId())
-                    .eq(Guidance::getTeacherId, login.getUserId()).eq(Guidance::getStatus, "ACTIVE"));
+                    .eq(Guidance::getTeacherId, login.getUserId()).in(Guidance::getStatus, "ACTIVE", "COMPLETED"));
             if (count != null && count > 0) return;
         }
         throw new BusinessException(ResultCode.FORBIDDEN.getCode(), "无权限查看该报名");
@@ -244,6 +244,28 @@ public class RegistrationServiceImpl implements RegistrationService {
                 mv.setMemberRole(m.getMemberRole());
                 return mv;
             }).toList();
+            if (UserContext.get() != null && "TEACHER".equals(UserContext.get().getRole())) {
+                var own = guidanceMapper.selectList(new LambdaQueryWrapper<Guidance>()
+                        .eq(Guidance::getRegistrationId,r.getId()).eq(Guidance::getTeacherId,UserContext.getUserId())
+                        .in(Guidance::getStatus,"ACTIVE","COMPLETED"));
+                if (own.stream().noneMatch(g -> "ACTIVE".equals(g.getStatus()))) {
+                    var saved = new java.util.LinkedHashMap<Long,RegistrationMemberVO>();
+                    for (var guidance : own) if (guidance.getMembersSnapshot() != null) {
+                        try {
+                            var roster = new com.fasterxml.jackson.databind.ObjectMapper().readTree(guidance.getMembersSnapshot());
+                            for (var member : roster) {
+                                var snapshot = new RegistrationMemberVO();snapshot.setUserId(member.path("userId").asLong());
+                                snapshot.setName(member.path("name").asText());
+                                snapshot.setMemberRole(java.util.Objects.equals(snapshot.getUserId(),r.getLeaderId())?"LEADER":"MEMBER");
+                                saved.putIfAbsent(snapshot.getUserId(),snapshot);
+                            }
+                        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                            throw new BusinessException("指导人员快照异常，请联系管理员");
+                        }
+                    }
+                    memberVOs = java.util.List.copyOf(saved.values());
+                }
+            }
             vo.setMembers(memberVOs);
             return vo;
         }).toList();

@@ -22,6 +22,10 @@ public class Content {
     private String content;
 
     private Long coverFileId;
+    private String officialUrl;
+    private Boolean carouselEnabled = false;
+    private Integer sortOrder = 0;
+
 
     /** 分类：NOTICE 通知 / NEWS 新闻 / ANNOUNCEMENT 公告 */
     private String category;

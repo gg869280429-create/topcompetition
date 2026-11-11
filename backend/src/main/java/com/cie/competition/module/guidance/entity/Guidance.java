@@ -35,6 +35,7 @@ public class Guidance {
     private LocalDateTime endedTime;
 
     private String endReason;
+    private String membersSnapshot;
 
     private LocalDateTime createTime;
 

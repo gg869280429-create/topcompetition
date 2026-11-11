@@ -21,6 +21,9 @@ public interface StatisticsMapper {
     @Select("SELECT COUNT(*) FROM award a JOIN registration r ON r.id=a.registration_id WHERE a.status = 'APPROVED' AND (#{majorId} IS NULL OR a.major_id=#{majorId})")
     long countAward(Long majorId);
 
+    @Select("SELECT COUNT(DISTINCT a.registration_id) FROM award a WHERE a.status='APPROVED' AND (#{majorId} IS NULL OR a.major_id=#{majorId})")
+    long countAwardTeams(Long majorId);
+
     @Select("SELECT COUNT(*) FROM sys_user WHERE role = 'STUDENT' AND status = 1 AND (#{majorId} IS NULL OR major_id=#{majorId})")
     long countStudent(Long majorId);
 
@@ -46,4 +49,7 @@ public interface StatisticsMapper {
 
     @Select("SELECT COUNT(*) FROM registration r JOIN competition c ON c.id=r.competition_id WHERE r.status='APPROVED' AND c.status<>'CANCELLED' AND (#{majorId} IS NULL OR r.major_id=#{majorId})")
     long countEffectiveRegistration(Long majorId);
-}
+    @Select("SELECT COUNT(DISTINCT x.student_id) FROM award_student x JOIN award a ON a.id=x.award_id WHERE a.status='APPROVED' AND (#{majorId} IS NULL OR a.major_id=#{majorId})")
+    long countAwardStudents(Long majorId);
+    @Select("SELECT COUNT(*) FROM award_teacher x JOIN award a ON a.id=x.award_id WHERE a.status='APPROVED' AND (#{majorId} IS NULL OR a.major_id=#{majorId})")
+    long countTeacherAchievements(Long majorId);}
