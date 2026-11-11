@@ -1,0 +1,89 @@
+/* 全局设计变量：蓝白配色、简洁、正式、清晰的高校校园管理平台风格 */
+:root {
+  /* 主题色 */
+  --color-primary: #2f6bed;
+  --color-primary-light: #5b8def;
+  --color-primary-dark: #1e4fb8;
+  --color-primary-plain: #eaf1fe;
+
+  /* 辅助色 */
+  --color-success: #52c41a;
+  --color-warning: #faad14;
+  --color-danger: #f5222d;
+  --color-info: #909399;
+
+  /* 背景与文字 */
+  --color-bg: #f5f7fa;
+  --color-bg-card: #ffffff;
+  --color-text: #303133;
+  --color-text-secondary: #606266;
+  --color-text-placeholder: #909399;
+  --color-border: #dcdfe6;
+  --color-border-light: #e4e7ed;
+
+  /* 字体 */
+  --font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+  --font-size-base: 14px;
+  --font-size-large: 16px;
+  --font-size-small: 12px;
+  --line-height-base: 1.5;
+
+  /* 尺寸与间距 */
+  --radius-base: 6px;
+  --radius-small: 4px;
+  --radius-large: 8px;
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+
+  /* 布局 */
+  --content-width: 1200px;
+  --sidebar-width: 220px;
+  --header-height: 56px;
+
+  /* 阴影 */
+  --shadow-card: 0 1px 4px rgba(0, 21, 41, 0.08);
+  --shadow-popover: 0 2px 12px rgba(0, 0, 0, 0.12);
+}
+
+/* 覆盖 Element Plus 主题色，保持统一蓝白风格 */
+:root {
+  --el-color-primary: var(--color-primary);
+  --el-color-primary-light-3: var(--color-primary-light);
+  --el-color-primary-light-5: #7aa7f3;
+  --el-color-primary-light-7: #aac5f7;
+  --el-color-primary-light-8: #c2d6fa;
+  --el-color-primary-light-9: #eaf1fe;
+  --el-color-primary-dark-2: var(--color-primary-dark);
+  --el-font-size-base: var(--font-size-base);
+  --el-border-radius-base: var(--radius-base);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
