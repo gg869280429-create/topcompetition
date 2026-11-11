@@ -1,0 +1,91 @@
+import { createRouter, createWebHistory } from 'vue-router'
+
+const routes = [
+  {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/login/index.vue'),
+    meta: { title: '登录' }
+  },
+  {
+    path: '/',
+    component: () => import('@/layout/index.vue'),
+    redirect: '/dashboard',
+    children: [
+      { path: 'teacher', name: 'Teacher', component: () => import('@/views/teacher/index.vue'), meta: { title: '教师库', requiresAuth: true, roles: ['ADMIN', 'MAJOR_ADMIN'] } },
+      {
+        path: 'dashboard',
+        name: 'Dashboard',
+        component: () => import('@/views/dashboard/index.vue'),
+        meta: { title: '首页', requiresAuth: true }
+      },
+      {
+        path: 'competition',
+        name: 'Competition',
+        component: () => import('@/views/competition/index.vue'),
+        meta: { title: '竞赛管理', requiresAuth: true }
+      },
+      {
+        path: 'registration',
+        name: 'Registration',
+        component: () => import('@/views/registration/index.vue'),
+        meta: { title: '报名管理', requiresAuth: true }
+      },
+      {
+        path: 'guidance',
+        name: 'Guidance',
+        component: () => import('@/views/guidance/index.vue'),
+        meta: { title: '指导管理', requiresAuth: true }
+      },
+      {
+        path: 'award',
+        name: 'Award',
+        component: () => import('@/views/award/index.vue'),
+        meta: { title: '获奖管理', requiresAuth: true }
+      },
+      {
+        path: 'content',
+        name: 'Content',
+        component: () => import('@/views/content/index.vue'),
+        meta: { title: '内容管理', requiresAuth: true }
+      },
+      {
+        path: 'statistics',
+        name: 'Statistics',
+        component: () => import('@/views/statistics/index.vue'),
+        meta: { title: '统计中心', requiresAuth: true }
+      }
+    ]
+  },
+  {
+    path: '/403',
+    name: 'Forbidden',
+    component: () => import('@/views/error/403.vue'),
+    meta: { title: '无权限' }
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/dashboard'
+  }
+]
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes
+})
+
+router.beforeEach((to, from, next) => {
+  document.title = to.meta.title ? `${to.meta.title} - 竞赛管理平台` : '竞赛管理平台'
+  const token = localStorage.getItem('token')
+  if (to.meta.requiresAuth && !token) {
+    next('/login')
+  } else if (to.path === '/login' && token) {
+    next('/dashboard')
+  } else if (to.meta.roles && !to.meta.roles.includes(JSON.parse(localStorage.getItem('userInfo') || 'null')?.role)) {
+    next('/403')
+  } else {
+    next()
+  }
+})
+
+export default router

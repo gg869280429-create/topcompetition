@@ -1,0 +1,43 @@
+# ===== IDE / 编辑器 =====
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+*.swo
+
+# ===== 操作系统 =====
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# ===== 日志 =====
+*.log
+logs/
+
+# ===== 后端 Spring Boot / Maven =====
+backend/target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# ===== 前端 Vue / Vite =====
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+*.local
+frontend/.env.local
+frontend/.env.*.local
+
+# ===== 本地工具 / 测试产物 =====
+.playwright-cli/
+output/
+docs/superpowers/
+
+# ===== Claude Code 本地配置（本地敏感，勿提交）=====
+.claude/settings.local.json
+**/application-local.yml
+**/application-local.yaml
+.env
+.env.*
+!.env.example
