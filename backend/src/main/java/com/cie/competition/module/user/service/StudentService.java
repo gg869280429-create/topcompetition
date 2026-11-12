@@ -102,7 +102,8 @@ public class StudentService {
         User student = users.lockById(id);
         check(student, major);
         long references = jdbc.queryForObject("SELECT (SELECT COUNT(*) FROM registration WHERE leader_id=?)+(SELECT COUNT(*) FROM registration_member WHERE user_id=?)+(SELECT COUNT(*) FROM award_student WHERE student_id=?)+(SELECT COUNT(*) FROM participation_result WHERE student_id=?)", Long.class, id, id, id, id);
-        if (references > 0) throw new BusinessException("学生有关联报名、指导或获奖历史，请使用停用");
+        if (references > 0 || jdbc.queryForObject("SELECT COUNT(*) FROM student_team_member WHERE user_id=?", Long.class, id) > 0)
+            throw new BusinessException("学生有关联组队、报名、指导或获奖历史，请使用停用");
         users.deleteById(id);
     }
 }

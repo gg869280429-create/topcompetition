@@ -13,6 +13,8 @@ import java.util.List;
 @Data
 public class RegistrationDTO {
 
+    private Long sourceTeamId;
+
     @NotNull(message = "竞赛不能为空")
     private Long competitionId;
 

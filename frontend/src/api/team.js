@@ -1,0 +1,11 @@
+import request from './request'
+export const myTeams = () => request.get('/team/mine')
+export const teamInvitations = () => request.get('/team/invitations')
+export const getTeam = id => request.get(`/team/${id}`)
+export const createTeam = data => request.post('/team', data)
+export const inviteTeamMembers = (id, memberIds) => request.post(`/team/${id}/invitations`, { memberIds })
+export const respondTeamInvitation = (id, accepted) => request.put(`/team/${id}/response`, { accepted })
+export const nominateCaptain = (id, userId) => request.put(`/team/${id}/captain`, { userId })
+export const confirmCaptain = (id, accepted) => request.put(`/team/${id}/captain/response`, { accepted })
+export const removeTeamMember = (id, userId) => request.delete(`/team/${id}/members/${userId}`)
+export const disbandTeam = id => request.delete(`/team/${id}`)

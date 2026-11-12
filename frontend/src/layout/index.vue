@@ -85,6 +85,7 @@ const avatarText = computed(() => {
 })
 
 const menuConfig = [
+  { path: '/team', title: '我的组队', icon: 'UserFilled', roles: ['STUDENT'] },
   { path: '/dashboard', title: '首页', icon: 'HomeFilled', roles: ['ADMIN', 'MAJOR_ADMIN', 'TEACHER', 'STUDENT'] },
   { path: '/competition', title: '竞赛管理', icon: 'Trophy', roles: ['ADMIN', 'MAJOR_ADMIN'] },
   { path: '/registration', title: '报名管理', icon: 'Tickets', roles: ['ADMIN', 'MAJOR_ADMIN', 'STUDENT'] },
@@ -103,7 +104,7 @@ const visibleMenus = computed(() => {
     m.path === '/content' ? { ...m, title: ['ADMIN', 'MAJOR_ADMIN'].includes(userStore.role) ? '新闻管理' : '竞赛预览' } : m)
   if (userStore.role === 'TEACHER') return ['/dashboard', '/guidance', '/award', '/content', '/profile'].map(path => menus.find(m => m.path === path))
   if (userStore.role !== 'STUDENT') return menus
-  return ['/dashboard', '/content', '/registration', '/award', '/profile'].map(path => {
+  return ['/dashboard', '/content', '/team', '/registration', '/award', '/profile'].map(path => {
     const menu = menus.find(m => m.path === path)
     return { ...menu, title: path === '/award' ? '获奖管理' : path === '/profile' ? '个人信息' : menu.title }
   })

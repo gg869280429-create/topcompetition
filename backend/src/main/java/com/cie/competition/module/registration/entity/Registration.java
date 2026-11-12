@@ -19,6 +19,8 @@ public class Registration {
 
     private Long competitionId;
 
+    private Long sourceTeamId;
+
     private Long preferredTeacherId;
 
     private String teamName;

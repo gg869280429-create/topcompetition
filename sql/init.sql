@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS `registration` (
     `preferred_teacher_id` BIGINT DEFAULT NULL,
     `id`             BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
     `competition_id` BIGINT       NOT NULL COMMENT '竞赛 ID',
+    `source_team_id` BIGINT DEFAULT NULL COMMENT '来源学生组队ID，报名名单独立保存',
     `team_name`      VARCHAR(128) NOT NULL COMMENT '团队名称（个人赛可为姓名）',
     `leader_id`      BIGINT       NOT NULL COMMENT '队长 / 负责人用户 ID',
     `major_id`       BIGINT       DEFAULT NULL COMMENT '所属专业 ID',
@@ -356,3 +357,29 @@ CREATE TABLE IF NOT EXISTS `operation_log` (
 --    - uk_registration_teacher：同一团队对同一教师仅一条指导关系。
 --    - uk_achievement：同一团队的同名、同等级、同日成果不可重复登记；不同成果分别关联实际获奖学生及教师。
 -- ======================================================================
+
+-- 在05迁移之后执行；新增报名之前的组队记录，不修改原报名名单。
+CREATE TABLE IF NOT EXISTS `student_team` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(128) NOT NULL,
+    `creator_id` BIGINT NOT NULL,
+    `captain_id` BIGINT DEFAULT NULL,
+    `nominated_captain_id` BIGINT DEFAULT NULL,
+    `status` VARCHAR(20) NOT NULL DEFAULT 'FORMING',
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_team_creator` (`creator_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='学生报名之前的组队';
+CREATE TABLE IF NOT EXISTS `student_team_member` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `team_id` BIGINT NOT NULL,
+    `user_id` BIGINT NOT NULL,
+    `invited_by` BIGINT NOT NULL,
+    `status` VARCHAR(20) NOT NULL,
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `responded_time` DATETIME DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_team_member` (`team_id`,`user_id`),
+    KEY `idx_team_member_user` (`user_id`,`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='学生组队成员及邀请状态，历次变更保存在业务历史';

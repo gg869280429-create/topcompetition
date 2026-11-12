@@ -28,6 +28,7 @@ public class RegistrationController {
     private final com.cie.competition.module.registration.service.RegistrationWorkflowService workflow;
     private final com.cie.competition.module.registration.service.RegistrationReviewService reviewService;
     private final com.cie.competition.module.registration.service.TeamRosterService roster;
+    private final com.cie.competition.module.team.service.StudentTeamService teams;
 
     @PutMapping("/{id}/members")
     @PreAuthorize("hasRole('STUDENT')")
@@ -54,7 +55,7 @@ public class RegistrationController {
     @PostMapping
     @PreAuthorize("hasRole('STUDENT')")
     public Result<Long> create(@Valid @RequestBody RegistrationDTO dto) {
-        return Result.success(registrationService.create(dto));
+        return Result.success(dto.getSourceTeamId()==null ? registrationService.create(dto) : teams.register(dto));
     }
 
     @PutMapping("/{id}")

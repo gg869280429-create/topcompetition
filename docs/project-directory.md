@@ -105,6 +105,7 @@
 | `views/dashboard/` | 学生、教师首页展示管理员新闻轮播；管理员首页保留竞赛卡片及操作入口。 |
 | `views/competition/` | 竞赛查询、发布、编辑、分类及状态操作。 |
 | `views/registration/` | 报名、邀请、审核、团队及退赛管理。 |
+| `views/team/` | 学生报名前的组队窗口：邀请、指定与确认队长，可复用队伍报名多个团队赛。 |
 | `views/guidance/` | 指导、名额、师生匹配、完成指导及结果登记。 |
 | `views/award/` | 成果申报审核、个人获奖记录、材料和历史。 |
 | `views/content/` | 管理员新闻管理；学生和教师的“竞赛预览”，展示原首页竞赛卡片及详情、报名入口。 |
@@ -144,6 +145,7 @@
 | `sql/migrations/20261111_03d_guidance.sql` | 指导成员快照及逐学生参赛结果表。 |
 | `sql/migrations/20261112_04_student_profile.sql` | 登录版本字段，学生修改密码后使旧登录凭证失效。 |
 | `sql/migrations/20261112_05_teacher_roster.sql` | 名单锁定时间及教师字段；兼容已有参赛结果、已完成指导及有效获奖的历史名单。 |
+| `sql/migrations/20261112_06_student_team.sql` | 独立组队、组队成员表及报名来源字段，保留旧报名名单。 |
 
 迁移脚本有执行前提和顺序，不能将整个目录的脚本反复执行。当前业务库的执行记录见迁移和排查文档。
 
@@ -157,6 +159,7 @@
 | `login-redesign-20261112.md` | 登录 HTML 迁移、移除入口及登录回归结果。 |
 | `admin-enhancements-20261112.md` | 同步发布竞赛新闻、报名管理分配教师与大师工作室占位页验收。 |
 | `teacher-center-20261112.md` | 教师个人中心、名额汇总、队长调整名单、整队结果登记和迁移验收。 |
+| `student-team-20261112.md` | 学生先组队、本人确认队长、多比赛报名和老师剩余名额刷新的实施及验收记录。 |
 | `local-configuration.md` | 本机、测试、生产配置与启动方法。 |
 | `teacher-intention.md` | 教师库、报名意向教师及管理员确认方案。 |
 | `backend-endpoint-inventory.md` | 后端接口方法与路径清单。 |

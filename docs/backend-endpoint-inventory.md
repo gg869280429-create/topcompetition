@@ -1,6 +1,6 @@
 # 后端接口清单（2026-11-12）
 
-共 99 个方法与路径组合。登录由真实登录场景验证；其余 98 个接口按四角色及未登录完成 490 次参数/权限检查，无服务端错误。完整业务流程及验证边界见[功能验收报告](feature-acceptance-20261111.md)、[个人信息与轮播验收](student-profile-20261112.md)、[管理员功能补充验收](admin-enhancements-20261112.md)及[教师端与团队名单验收](teacher-center-20261112.md)。
+共 109 个方法与路径组合。登录由真实登录场景验证；其余 108 个接口按四角色及未登录完成 540 次参数/权限检查，无服务端错误。完整业务流程及验证边界见[功能验收报告](feature-acceptance-20261111.md)、[个人信息与轮播验收](student-profile-20261112.md)、[管理员功能补充验收](admin-enhancements-20261112.md)、[教师端与团队名单验收](teacher-center-20261112.md)及[学生组队验收](student-team-20261112.md)。
 
 | 方法 | 路径 |
 | --- | --- |
@@ -100,6 +100,16 @@
 | GET | `/api/teacher/majors` |
 | GET | `/api/teacher/page` |
 | PUT | `/api/teacher/{id}` |
+| POST | `/api/team` |
+| GET | `/api/team/invitations` |
+| GET | `/api/team/mine` |
+| DELETE | `/api/team/{id}` |
+| GET | `/api/team/{id}` |
+| PUT | `/api/team/{id}/captain` |
+| PUT | `/api/team/{id}/captain/response` |
+| POST | `/api/team/{id}/invitations` |
+| DELETE | `/api/team/{id}/members/{userId}` |
+| PUT | `/api/team/{id}/response` |
 | GET | `/api/user/students` |
 | GET | `/api/user/teachers` |
 | GET | `/api/user/users` |

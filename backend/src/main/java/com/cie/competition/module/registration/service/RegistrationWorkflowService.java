@@ -40,13 +40,23 @@ public class RegistrationWorkflowService {
 
  @Transactional
  public Long create(RegistrationDTO dto) {
+  return createRecord(dto,null);
+ }
+
+ @Transactional
+ public Long createFromTeam(RegistrationDTO dto,Long teamId) {
+  return createRecord(dto,teamId);
+ }
+
+ private Long createRecord(RegistrationDTO dto,Long teamId) {
   role("STUDENT"); competitions.lockById(dto.getCompetitionId()); competitions.requireRegistrationOpen(dto.getCompetitionId());
   var people = validate(dto, UserContext.getUserId());
   Registration r = new Registration(); r.setCompetitionId(dto.getCompetitionId()); r.setLeaderId(UserContext.getUserId());
   r.setMajorId(people.get(0).getMajorId()); r.setTeamName(dto.getTeamName()); r.setPreferredTeacherId(dto.getPreferredTeacherId()); r.setStatus("DRAFT"); r.setCrossMajor(cross(people));
-  registrations.insert(r); replaceMembers(r, people);
+  r.setSourceTeamId(teamId);
+  registrations.insert(r); replaceMembers(r, people,teamId!=null);
   history.record("REGISTRATION",r.getId(),"CREATE",null,r,null);
-  if(people.size()==1) submit(r.getId());
+  if(people.size()==1||teamId!=null) submit(r.getId());
   return r.getId();
  }
 
@@ -205,10 +215,16 @@ public class RegistrationWorkflowService {
   return memberValidator.validate(dto.getCompetitionId(),leader,dto.getMemberIds());
  }
  private void replaceMembers(Registration r,List<User> people){
+  replaceMembers(r,people,false);
+ }
+ private void replaceMembers(Registration r,List<User> people,boolean teamConfirmed){
   var before=current(r.getId());Set<Long> oldIds=new HashSet<>();before.forEach(m->oldIds.add(m.getUserId()));Set<Long> newIds=new HashSet<>();people.forEach(u->newIds.add(u.getId()));
   for(var old:before)if(!newIds.contains(old.getUserId())){old.setCurrentMember(0);old.setActiveKey(null);members.updateById(old);revokeUser(r,old.getUserId());}
   for(var u:people){if(!oldIds.contains(u.getId())){var m=new RegistrationMember();m.setRegistrationId(r.getId());m.setCompetitionId(r.getCompetitionId());m.setUserId(u.getId());m.setCurrentMember(1);m.setMemberRole(u.getId().equals(r.getLeaderId())?"LEADER":"MEMBER");m.setJoinTime(LocalDateTime.now());members.insert(m);}
-   if(!u.getId().equals(r.getLeaderId())&&!accepted(r.getId(),u.getId()))invite(r,u.getId(),false);
+   if(!u.getId().equals(r.getLeaderId())&&!accepted(r.getId(),u.getId())) {
+    if(teamConfirmed){var invitation=new TeamInvitation();invitation.setRegistrationId(r.getId());invitation.setInviteeId(u.getId());invitation.setInviterId(r.getLeaderId());invitation.setStatus("ACCEPTED");invitation.setCreateTime(LocalDateTime.now());invitation.setRespondedTime(LocalDateTime.now());invitations.insert(invitation);history.record("REGISTRATION",r.getId(),"TEAM_CONSENT_IMPORTED",null,Map.of("sourceTeamId",r.getSourceTeamId(),"studentId",u.getId()),"成员已主动接受组队邀请，队长已确认");}
+    else invite(r,u.getId(),false);
+   }
   }
  }
  private boolean accepted(Long reg,Long user){var latest=invitations.selectList(new LambdaQueryWrapper<TeamInvitation>().eq(TeamInvitation::getRegistrationId,reg).eq(TeamInvitation::getInviteeId,user).orderByDesc(TeamInvitation::getId).last("LIMIT 1"));return !latest.isEmpty()&&"ACCEPTED".equals(latest.get(0).getStatus());}

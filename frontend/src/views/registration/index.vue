@@ -117,16 +117,23 @@
           <el-input v-else :model-value="currentCompetition?.title || ''" disabled />
         </el-form-item>
         <el-form-item label="指导老师" prop="preferredTeacherId">
-          <el-select v-model="applyForm.preferredTeacherId" placeholder="请选择一位指导老师" :loading="teachersLoading" :disabled="teachersLoading || !applyForm.competitionId" style="width:100%">
-            <el-option v-for="t in teacherOptions" :key="t.teacherId" :value="t.teacherId" :label="`${t.teacherName}（${t.majorName || '专业未设置'}，剩余${t.remaining}个名额）`" />
+          <el-select v-model="applyForm.preferredTeacherId" placeholder="请选择一位指导老师" :loading="teachersLoading" :disabled="teachersLoading || !applyForm.competitionId" style="width:100%" @visible-change="open => open && loadTeachers(applyForm.competitionId, true)">
+            <el-option v-for="t in teacherOptions" :key="t.teacherId" :value="t.teacherId" :label="`${t.teacherName}（${t.majorName || '专业未设置'}，剩余${t.remaining}个名额）`" :disabled="t.remaining <= 0" />
           </el-select>
           <div class="tip-text">指导老师由管理员审核确认，确认前不占用指导名额。</div>
+          <div class="tip-text">每5秒自动刷新名额。{{ teacherFresh ? `更新于 ${teacherUpdatedAt}` : '名额尚未更新，请刷新后再提交。' }} <el-button link type="primary" :disabled="!applyForm.competitionId || teachersLoading" @click="loadTeachers(applyForm.competitionId)">刷新名额</el-button></div>
+          <el-alert v-if="selectedTeacher && selectedTeacher.remaining <= 0" title="所选老师名额已满，请重新选择" type="warning" :closable="false" />
           <div v-if="selectedTeacher" class="tip-text">擅长方向：{{ selectedTeacher.expertise || '暂未填写' }}<br />{{ selectedTeacher.biography }}</div>
         </el-form-item>
-        <el-form-item label="团队名称" prop="teamName">
-          <el-input v-model="applyForm.teamName" maxlength="128" show-word-limit />
+        <el-form-item v-if="currentCompetition?.competitionType === 'TEAM' && !applyForm.id" label="报名队伍" prop="sourceTeamId">
+          <el-select v-model="applyForm.sourceTeamId" placeholder="请选择已完成组队且本人担任队长的队伍" style="width:100%" :loading="teamsLoading" @change="handleTeamChange"><el-option v-for="t in readyTeams" :key="t.id" :value="t.id" :label="`${t.name}（${t.memberCount}人）`" /></el-select>
+          <div class="tip-text">先邀请同学组队，再由创建人指定队长并由本人确认。<el-button link type="primary" @click="router.push('/team')">前往我的组队</el-button></div>
         </el-form-item>
-        <el-form-item v-if="currentCompetition?.competitionType === 'TEAM'" label="团队成员">
+        <el-form-item label="团队名称" prop="teamName">
+          <el-input v-model="applyForm.teamName" maxlength="128" show-word-limit :disabled="!!applyForm.sourceTeamId" />
+        </el-form-item>
+        <el-form-item v-if="currentCompetition?.competitionType === 'TEAM' && !applyForm.id" label="团队成员"><span>{{ students.map(s=>s.realName || s.username).join('、') || '选择队伍后显示成员' }}（不含本人，报名时自动加入队长）</span></el-form-item>
+        <el-form-item v-if="currentCompetition?.competitionType === 'TEAM' && applyForm.id" label="团队成员">
           <el-select
             v-model="applyForm.memberIds"
             multiple
@@ -254,9 +261,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import { useUserStore } from '@/store/user'
@@ -271,11 +278,13 @@ import {
   revokeInvitation, registrationHistory, reapplyRegistration, requestWithdrawal, reviewWithdrawal, updateTeamMembers
 } from '@/api/registration'
 import { listStudents } from '@/api/user'
+import { myTeams, getTeam } from '@/api/team'
 import { competitionTeachers, listGuidance, assignGuidance, replaceGuidance } from '@/api/guidance'
 import { COMPETITION_TYPE, REGISTRATION_STATUS } from '@/constants/dict'
 
 const userStore = useUserStore()
 const route = useRoute()
+const router = useRouter()
 const isTeacher = computed(() => userStore.role === 'TEACHER')
 const isStudent = computed(() => userStore.role === 'STUDENT')
 const isAdmin = computed(() => userStore.role === 'ADMIN' || userStore.role === 'MAJOR_ADMIN')
@@ -326,7 +335,8 @@ const competitions = ref([])
 const currentCompetition = ref(null)
 const students = ref([])
 const studentLoading = ref(false)
-const applyForm = reactive({ id: null, competitionId: null, preferredTeacherId: null, teamName: '', memberIds: [] })
+const applyForm = reactive({ id: null, sourceTeamId: null, competitionId: null, preferredTeacherId: null, teamName: '', memberIds: [] })
+const readyTeams = ref([]), teamsLoading = ref(false), teacherFresh = ref(false), teacherUpdatedAt = ref('')
 const teacherOptions = ref([])
 const teachersLoading = ref(false)
 const selectedTeacher = computed(() => teacherOptions.value.find(t => t.teacherId === applyForm.preferredTeacherId))
@@ -398,6 +408,7 @@ const reviewAction = ref('APPROVED')
 const reviewComment = ref('')
 
 const applyRules = {
+  sourceTeamId: [{ validator: (_, value, done) => done(!applyForm.id && currentCompetition.value?.competitionType === 'TEAM' && !value ? new Error('请先选择已完成组队并确认队长的队伍') : undefined), trigger: 'change' }],
   preferredTeacherId: [{ required: true, message: '请选择一位指导老师', trigger: 'change' }],
   competitionId: [{ required: true, message: '请选择竞赛', trigger: 'change' }],
   teamName: [{ required: true, message: '请输入团队名称', trigger: 'blur' }]
@@ -439,20 +450,38 @@ async function loadCompetitions() {
 }
 
 let teacherRequestVersion = 0
-async function loadTeachers(id) {
+let teacherRequests = 0
+async function loadTeachers(id, quiet = false) {
+  if (!id || (quiet && teacherRequests > 0)) return
+  teacherRequests++
   const version = ++teacherRequestVersion
-  teachersLoading.value = true
-  teacherOptions.value = []
-  try { const res = await competitionTeachers(id); if (version === teacherRequestVersion) teacherOptions.value = res.data }
-  finally { if (version === teacherRequestVersion) teachersLoading.value = false }
+  if (!quiet) teachersLoading.value = true
+  try { const res = await competitionTeachers(id); if (version === teacherRequestVersion) { teacherOptions.value = res.data; teacherFresh.value = true; teacherUpdatedAt.value = new Date().toLocaleTimeString('zh-CN') } }
+  catch { if (version === teacherRequestVersion) teacherFresh.value = false }
+  finally { teacherRequests--; if (version === teacherRequestVersion) teachersLoading.value = false }
 }
 async function handleCompetitionChange(id) {
   applyForm.preferredTeacherId = null
+  teacherOptions.value = []; teacherFresh.value = false
   currentCompetition.value = competitions.value.find((c) => c.id === id) || null
   if (currentCompetition.value?.competitionType === 'PERSONAL') {
-    applyForm.memberIds = []
+    applyForm.memberIds = []; applyForm.sourceTeamId = null; students.value = []
   }
   await loadTeachers(id)
+}
+let teamRequestVersion = 0
+async function handleTeamChange(id) {
+  const version=++teamRequestVersion
+  teamsLoading.value=true
+  try {
+    const team=(await getTeam(id)).data
+    if(version!==teamRequestVersion || !applyVisible.value)return
+    if(team.status!=='READY' || team.captainId!==currentUserId.value){applyForm.sourceTeamId=null;ElMessage.warning('队伍尚未就绪或您不是已确认队长');return}
+    applyForm.teamName=team.name
+    students.value=team.members.filter(m=>m.status==='ACCEPTED' && m.userId!==currentUserId.value).map(m=>({id:m.userId,realName:m.name}))
+    applyForm.memberIds=students.value.map(m=>m.id)
+  } catch { applyForm.sourceTeamId=null; return }
+  finally { if(version===teamRequestVersion)teamsLoading.value=false }
 }
 
 async function searchStudents(keyword) {
@@ -468,12 +497,15 @@ async function searchStudents(keyword) {
 let applyVersion = 0
 function resetApplyForm() {
   applyVersion++
+  teamRequestVersion++
   teacherRequestVersion++
   teachersLoading.value = false
   applyForm.id = null
+  applyForm.sourceTeamId = null
   applyForm.competitionId = null
   applyForm.preferredTeacherId = null
   teacherOptions.value = []
+  teacherFresh.value = false; teacherUpdatedAt.value = ''; readyTeams.value=[]; teamsLoading.value=false
   applyForm.teamName = ''
   applyForm.memberIds = []
   currentCompetition.value = null
@@ -485,8 +517,18 @@ async function openApply() {
   resetApplyForm()
   applyVisible.value = true
   const version = applyVersion
-  await loadCompetitions()
+  const [,teamResult]=await Promise.all([loadCompetitions(),myTeams()])
+  if(version!==applyVersion || !applyVisible.value)return version
+  readyTeams.value=teamResult.data.filter(t=>t.status==='READY' && t.captainId===currentUserId.value)
   return version
+}
+async function openApplyWithTeam(teamId) {
+  const version=await openApply()
+  if(version!==applyVersion || !applyVisible.value)return
+  competitions.value=competitions.value.filter(c=>c.competitionType==='TEAM')
+  if(!readyTeams.value.some(t=>t.id===teamId)){ElMessage.warning('请先完成组队并确认队长');return}
+  applyForm.sourceTeamId=teamId
+  await handleTeamChange(teamId)
 }
 
 async function openApplyWithCompetition(competitionId) {
@@ -553,6 +595,7 @@ async function withdrawalReview(row, result) {
 }
 
 function handleApplySubmit() {
+  if(submitting.value || teamsLoading.value)return
   applyFormRef.value.validate(async (valid) => {
     if (!valid) return
     if (currentCompetition.value) {
@@ -568,7 +611,10 @@ function handleApplySubmit() {
     }
     submitting.value = true
     try {
+      await loadTeachers(applyForm.competitionId)
+      if(!teacherFresh.value || !selectedTeacher.value || selectedTeacher.value.remaining<=0){ElMessage.warning('指导老师名额已变更或获取失败，请刷新并重新选择');return}
       const payload = {
+        sourceTeamId: applyForm.sourceTeamId,
         competitionId: applyForm.competitionId,
         preferredTeacherId: applyForm.preferredTeacherId,
         teamName: applyForm.teamName,
@@ -579,7 +625,7 @@ function handleApplySubmit() {
       } else {
         await createRegistration(payload)
       }
-      ElMessage.success(applyForm.memberIds.length ? '草稿已保存，请等待成员确认后正式提交' : '保存成功，请查看状态并正式提交')
+      ElMessage.success(applyForm.sourceTeamId ? '已使用确认的组队名单提交报名，等待管理员审核' : applyForm.memberIds.length ? '草稿已保存，请等待成员确认后正式提交' : '保存成功，请查看状态并正式提交')
       applyVisible.value = false
       fetchList()
     } finally {
@@ -642,11 +688,19 @@ async function handleReviewSubmit() {
 
 watch(() => [route.query.detail, route.query.open], ([id]) => { if (id) openDetail({ id: Number(id) }) })
 watch(() => route.query.invitation, () => loadInvitations())
+watch(() => route.query.team, id => { if(id && isStudent.value)openApplyWithTeam(Number(id)) })
+let teacherPoll
+watch(applyVisible, visible => {
+  clearInterval(teacherPoll)
+  if(visible)teacherPoll=setInterval(()=>{if(!document.hidden && applyForm.competitionId)loadTeachers(applyForm.competitionId,true)},5000)
+})
+onUnmounted(()=>{clearInterval(teacherPoll);teacherRequestVersion++;teamRequestVersion++})
 onMounted(() => {
   fetchList()
   loadInvitations()
   if (route.query.detail) openDetail({ id: Number(route.query.detail) })
   const cid = route.query.competitionId
+  if(route.query.team && isStudent.value){openApplyWithTeam(Number(route.query.team));return}
   if (cid && isStudent.value) {
     openApplyWithCompetition(Number(cid))
   }
@@ -669,6 +723,8 @@ onMounted(() => {
 }
 
 .tip-text {
+  width: 100%;
+  line-height: 1.7;
   color: var(--color-text-secondary);
   font-size: var(--font-size-small);
 }

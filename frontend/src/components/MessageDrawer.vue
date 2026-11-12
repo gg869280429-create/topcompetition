@@ -53,7 +53,7 @@
       </div>
       <el-divider />
       <div class="detail-content">{{ detail.content || '（无内容）' }}</div>
-      <template #footer><el-button v-if="['REGISTRATION','AWARD','COMPETITION','INVITATION'].includes(detail.bizType) && detail.bizId" type="primary" @click="openBusiness">查看相关业务</el-button></template>
+      <template #footer><el-button v-if="['REGISTRATION','AWARD','COMPETITION','INVITATION','TEAM'].includes(detail.bizType) && detail.bizId" type="primary" @click="openBusiness">查看相关业务</el-button></template>
     </el-dialog>
 
     <el-dialog v-model="sendVisible" title="发送消息" width="480px" append-to-body :close-on-click-modal="false" @closed="resetSendForm">
@@ -97,6 +97,7 @@ import { useRouter } from 'vue-router'
 import { getRegistration, myInvitations } from '@/api/registration'
 import { getAward } from '@/api/award'
 import { getCompetition } from '@/api/competition'
+import { getTeam } from '@/api/team'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/store/user'
 import { listUsers } from '@/api/user'
@@ -166,6 +167,7 @@ async function openBusiness() {
   let path
   let query = { detail: bizId, open: Date.now() }
   if (bizType === 'REGISTRATION') { await getRegistration(bizId); path = '/registration' }
+  else if (bizType === 'TEAM') { await getTeam(bizId); path = '/team' }
   else if (bizType === 'AWARD') { await getAward(bizId); path = '/award' }
   else if (bizType === 'COMPETITION') { await getCompetition(bizId); path = '/competition' }
   else if (bizType === 'INVITATION') {

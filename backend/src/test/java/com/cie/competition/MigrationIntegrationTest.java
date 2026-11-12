@@ -32,7 +32,7 @@ class MigrationIntegrationTest extends IsolatedDatabaseTest {
         Map<String, Set<String>> additions = Map.of(
                 "sys_user", Set.of("token_version"),
                 "competition", Set.of("manager_id", "cancellation_reason", "cancelled_at", "major_id"),
-                "registration", Set.of("leader_name_snapshot", "major_name_snapshot", "roster_locked_at", "roster_locked_by"),
+                "registration", Set.of("leader_name_snapshot", "major_name_snapshot", "roster_locked_at", "roster_locked_by", "source_team_id"),
                 "registration_member", Set.of("active_key", "current_member", "name_snapshot", "major_id_snapshot", "major_name_snapshot"),
                 "guidance", Set.of("active_key", "ended_time", "end_reason", "members_snapshot"),
                 "content", Set.of("official_url", "carousel_enabled", "sort_order"),
@@ -45,7 +45,7 @@ class MigrationIntegrationTest extends IsolatedDatabaseTest {
             for (String column : entry.getValue()) legacy = legacy.replaceAll("(?m)^\\s*`" + column + "`[^\\r\\n]*\\R", "");
             schema = schema.replace(original, legacy);
         }
-        for (String table : Set.of("team_invitation", "withdrawal_request", "business_history", "award_student", "award_teacher", "award_celebration", "participation_result"))
+        for (String table : Set.of("team_invitation", "withdrawal_request", "business_history", "award_student", "award_teacher", "award_celebration", "participation_result", "student_team", "student_team_member"))
             schema = schema.replaceAll("(?s)CREATE TABLE IF NOT EXISTS `" + table + "`.*?;", "");
         schema = schema.replace("(`competition_id`, `user_id`, `active_key`)", "(`competition_id`, `user_id`)")
                 .replace("`uk_achievement` (`competition_id`, `registration_id`, `achievement_key`)", "`uk_competition_registration` (`competition_id`, `registration_id`)")
@@ -91,6 +91,9 @@ class MigrationIntegrationTest extends IsolatedDatabaseTest {
                     execute(connection, Files.readString(root.resolve("migrations/20261111_" + migration + ".sql")));
                 execute(connection, Files.readString(root.resolve("migrations/20261112_04_student_profile.sql")));
                 execute(connection, Files.readString(root.resolve("migrations/20261112_05_teacher_roster.sql")));
+                execute(connection, Files.readString(root.resolve("migrations/20261112_06_student_team.sql")));
+                try(var result=statement.executeQuery("SELECT source_team_id FROM registration WHERE id=1")){assertTrue(result.next());assertNull(result.getObject(1));}
+                try(var result=statement.executeQuery("SELECT (SELECT COUNT(*) FROM student_team)+(SELECT COUNT(*) FROM student_team_member)")){assertTrue(result.next());assertEquals(0,result.getInt(1));}
                 try(var result=statement.executeQuery("SELECT roster_locked_at,review_comment,update_time FROM registration WHERE id=1")) {
                     assertTrue(result.next());assertNotNull(result.getTimestamp(1));assertEquals("原审核意见",result.getString(2));assertEquals("2020-01-02 03:04:05",result.getTimestamp(3).toString().substring(0,19));
                 }

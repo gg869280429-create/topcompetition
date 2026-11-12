@@ -12,6 +12,7 @@ const routes = [
     component: () => import('@/layout/index.vue'),
     redirect: '/dashboard',
     children: [
+      { path: 'team', name: 'StudentTeam', component: () => import('@/views/team/index.vue'), meta: { title: '我的组队', requiresAuth: true, roles: ['STUDENT'] } },
       { path: 'studio', name: 'Studio', component: () => import('@/views/studio/index.vue'), meta: { title: '大师工作室', requiresAuth: true, roles: ['ADMIN', 'MAJOR_ADMIN'] } },
       { path: 'profile', name: 'PersonalProfile', component: () => import('@/views/profile/index.vue'), meta: { title: '个人中心', requiresAuth: true, roles: ['STUDENT', 'TEACHER'] } },
       { path: 'major', name: 'Major', component: () => import('@/views/major/index.vue'), meta: { title: '专业管理', requiresAuth: true, roles: ['ADMIN'] } },
