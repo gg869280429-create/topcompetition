@@ -14,11 +14,13 @@ desktop.ini
 $RECYCLE.BIN/
 
 # ===== 日志 =====
+# 日志统一存放在 logs/；同时忽略误写到其他目录的 .log 文件。
 *.log
 logs/
 
 # ===== 后端 Spring Boot / Maven =====
 backend/target/
+backend/uploads/
 !.mvn/wrapper/maven-wrapper.jar
 
 # ===== 前端 Vue / Vite =====

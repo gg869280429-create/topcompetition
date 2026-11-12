@@ -1,5 +1,7 @@
 # 本地配置与凭据更换
 
+人工保存的启动、构建和测试日志统一放在项目根目录 `logs/`。例如在 `backend` 目录执行 PowerShell 命令：`mvn spring-boot:run *> ../logs/backend-local.log`；在 `frontend` 目录执行：`npm run dev *> ../logs/frontend-local.log`。执行前确保根目录的 `logs/` 已存在。该目录被 Git 忽略。IDE 控制台输出无需另存；需要导出时同样保存到 `logs/`。
+
 主配置 application.yml 的 DB_URL、DB_USERNAME、DB_PASSWORD、JWT_SECRET 没有密码或密钥默认值。默认启用 local，读取本机忽略文件；显式选择 test 或 prod 时，分别由对应环境变量提供配置。
 
 本地启动：在 backend 目录执行 `mvn spring-boot:run`，也可显式执行 `mvn spring-boot:run "-Dspring-boot.run.profiles=local"`。

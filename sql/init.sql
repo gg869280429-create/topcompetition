@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS `sys_user` (
     `id`          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
     `username`    VARCHAR(64)  NOT NULL COMMENT '登录用户名',
     `password`    VARCHAR(128) NOT NULL COMMENT '密码（BCrypt 加密）',
+    `token_version` BIGINT NOT NULL DEFAULT 0 COMMENT '密码变更后的登录凭证版本',
     `real_name`   VARCHAR(64)  DEFAULT NULL COMMENT '真实姓名',
     `role`        VARCHAR(32)  NOT NULL DEFAULT 'STUDENT' COMMENT '角色：ADMIN/MAJOR_ADMIN/TEACHER/STUDENT',
     `major_id`    BIGINT       DEFAULT NULL COMMENT '所属专业 ID',

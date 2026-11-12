@@ -12,6 +12,7 @@ const routes = [
     component: () => import('@/layout/index.vue'),
     redirect: '/dashboard',
     children: [
+      { path: 'profile', name: 'StudentProfile', component: () => import('@/views/profile/index.vue'), meta: { title: '个人信息管理', requiresAuth: true, roles: ['STUDENT'] } },
       { path: 'major', name: 'Major', component: () => import('@/views/major/index.vue'), meta: { title: '专业管理', requiresAuth: true, roles: ['ADMIN'] } },
       { path: 'student', name: 'Student', component: () => import('@/views/student/index.vue'), meta: { title: '学生管理', requiresAuth: true, roles: ['ADMIN', 'MAJOR_ADMIN'] } },
       { path: 'teacher', name: 'Teacher', component: () => import('@/views/teacher/index.vue'), meta: { title: '教师库', requiresAuth: true, roles: ['ADMIN', 'MAJOR_ADMIN'] } },
@@ -77,7 +78,9 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
-  document.title = to.meta.title ? `${to.meta.title} - 竞赛管理平台` : '竞赛管理平台'
+  const role = JSON.parse(localStorage.getItem('userInfo') || 'null')?.role
+  const title = to.name === 'Content' ? (['STUDENT', 'TEACHER'].includes(role) ? '竞赛预览' : '新闻管理') : to.meta.title
+  document.title = title ? `${title} - 竞赛管理平台` : '竞赛管理平台'
   const token = localStorage.getItem('token')
   if (to.meta.requiresAuth && !token) {
     next('/login')

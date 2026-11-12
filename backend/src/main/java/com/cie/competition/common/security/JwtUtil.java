@@ -39,11 +39,16 @@ public class JwtUtil {
     }
 
     public String generateToken(Long userId, String username, String role) {
+        return generateToken(userId, username, role, 0L);
+    }
+
+    public String generateToken(Long userId, String username, String role, Long tokenVersion) {
         long now = System.currentTimeMillis();
         return Jwts.builder()
                 .subject(String.valueOf(userId))
                 .claim("username", username)
                 .claim("role", role)
+                .claim("tokenVersion", tokenVersion == null ? 0L : tokenVersion)
                 .issuedAt(new Date(now))
                 .expiration(new Date(now + expireHours * 3600 * 1000))
                 .signWith(key)

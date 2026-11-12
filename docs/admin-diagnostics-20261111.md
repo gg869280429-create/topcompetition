@@ -50,7 +50,7 @@
 
 本轮检查期间，原前端开发进程曾因 `ECONNRESET` 退出，已重新启动并验证前端代理正常。未对该单次连接重置作额外的根因结论。
 
-当前后端运行于 8080，前端开发服务运行于 5173。可直接刷新管理员页面；后台进程日志在 `output/admin-backend-after-migration*.log`、`output/admin-frontend-after-migration*.log`，这些本地产物被 Git 忽略。
+本次复验时后端运行于 8080，前端开发服务运行于 5173。后台进程日志已统一归档到 `logs/admin-backend-after-migration*.log`、`logs/admin-frontend-after-migration*.log`，这些本地产物被 Git 忽略。
 
 ## 仍需核实的资料
 
@@ -62,4 +62,4 @@
 - 现有管理员仍可用代码中的初始口令登录，生产部署应更换初始口令策略及该账号口令；本次没有重置真实用户密码。
 - 之前已记录的 Tomcat Native 版本提示、Vite 包体积警告、favicon 404 仍作为环境/资源问题保留，详见[功能验收记录](feature-acceptance-20261111.md)。
 
-证据：`output/admin-schema-code-alignment.json`、`output/admin-diagnostics.json`、`output/admin-browser-pages-before.json`、`output/admin-browser-pages-after.json`、`output/admin-records-check.json`、`output/admin-login-check.json`、`output/admin-final-tests.log`。不将含本地账号辅助信息、备份和日志的整个 `output/` 目录提交 Git。
+证据：`output/admin-schema-code-alignment.json`、`output/admin-diagnostics.json`、`output/admin-browser-pages-before.json`、`output/admin-browser-pages-after.json`、`output/admin-records-check.json`、`output/admin-login-check.json`、`logs/admin-final-tests.log`。不将含本地账号辅助信息和备份的整个 `output/` 目录提交 Git。

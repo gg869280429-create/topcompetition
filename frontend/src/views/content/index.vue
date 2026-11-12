@@ -1,5 +1,6 @@
 <template>
-  <div>
+  <CompetitionPreview v-if="!isAdmin" />
+  <div v-else>
     <PageHeader :title="isAdmin ? '新闻管理' : '新闻资讯'">
       <template #actions>
         <el-button v-if="isAdmin" type="primary" @click="openCreate">
@@ -131,6 +132,7 @@ import { ref, reactive, computed, onMounted, onUnmounted }  from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import PageHeader from '@/components/PageHeader.vue'
 import PageContainer from '@/components/PageContainer.vue'
+import CompetitionPreview from '@/components/CompetitionPreview.vue'
 import { useUserStore } from '@/store/user'
 import {
   pageContent,
@@ -273,7 +275,7 @@ async function uploadCover(options) {
   finally { coverUploading.value = false }
 }
 onUnmounted(() => { if(detailCover.value)URL.revokeObjectURL(detailCover.value) })
-onMounted(fetchList)
+onMounted(() => { if (isAdmin.value) fetchList() })
 </script>
 
 <style scoped>

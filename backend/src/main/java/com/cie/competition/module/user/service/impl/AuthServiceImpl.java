@@ -33,7 +33,7 @@ public class AuthServiceImpl implements AuthService {
         if (user.getStatus() == null || user.getStatus() != 1) {
             throw new BusinessException(ResultCode.FORBIDDEN.getCode(), "账号已被禁用");
         }
-        String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole());
+        String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole(), user.getTokenVersion());
         UserInfoVO info = toUserInfoVO(user);
         return new LoginVO(token, info);
     }

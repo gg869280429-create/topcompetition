@@ -23,6 +23,9 @@ public class User {
     @JsonIgnore
     private String password;
 
+    @JsonIgnore
+    private Long tokenVersion;
+
     private String realName;
 
     /** 角色：ADMIN / TEACHER / STUDENT */

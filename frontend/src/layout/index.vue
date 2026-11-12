@@ -87,6 +87,7 @@ const menuConfig = [
   { path: '/registration', title: '报名管理', icon: 'Tickets', roles: ['ADMIN', 'MAJOR_ADMIN', 'STUDENT'] },
   { path: '/guidance', title: '指导管理', icon: 'UserFilled', roles: ['ADMIN', 'MAJOR_ADMIN', 'TEACHER'] },
   { path: '/award', title: '获奖记录', icon: 'Medal', roles: ['ADMIN', 'MAJOR_ADMIN', 'TEACHER', 'STUDENT'] },
+  { path: '/profile', title: '个人信息管理', icon: 'User', roles: ['STUDENT'] },
   { path: '/content', title: '新闻资讯', icon: 'Document', roles: ['ADMIN', 'MAJOR_ADMIN', 'TEACHER', 'STUDENT'] },
   { path: '/major', title: '专业管理', icon: 'School', roles: ['ADMIN'] },
   { path: '/student', title: '学生管理', icon: 'User', roles: ['ADMIN', 'MAJOR_ADMIN'] },
@@ -94,7 +95,7 @@ const menuConfig = [
   { path: '/statistics', title: '统计中心', icon: 'Histogram', roles: ['ADMIN', 'MAJOR_ADMIN'] }
 ]
 const visibleMenus = computed(() => menuConfig.filter((m) => m.roles.includes(userStore.role)).map(m =>
-  m.path === '/content' && ['ADMIN','MAJOR_ADMIN'].includes(userStore.role) ? { ...m, title: '新闻管理' } : m))
+  m.path === '/content' ? { ...m, title: ['ADMIN','MAJOR_ADMIN'].includes(userStore.role) ? '新闻管理' : '竞赛预览' } : m))
 
 const unread = ref(0)
 const messageVisible = ref(false)

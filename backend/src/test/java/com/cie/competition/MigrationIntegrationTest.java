@@ -30,6 +30,7 @@ class MigrationIntegrationTest extends IsolatedDatabaseTest {
         Path root = Path.of("../sql");
         String schema = Files.readString(root.resolve("init.sql"));
         Map<String, Set<String>> additions = Map.of(
+                "sys_user", Set.of("token_version"),
                 "competition", Set.of("manager_id", "cancellation_reason", "cancelled_at", "major_id"),
                 "registration", Set.of("leader_name_snapshot", "major_name_snapshot"),
                 "registration_member", Set.of("active_key", "current_member", "name_snapshot", "major_id_snapshot", "major_name_snapshot"),
@@ -88,6 +89,10 @@ class MigrationIntegrationTest extends IsolatedDatabaseTest {
                 assertThrows(java.sql.SQLException.class, () -> statement.executeUpdate("INSERT INTO guidance(registration_id,competition_id,teacher_id,status,active_key) VALUES(1,1,2,'ACTIVE',1)"));
                 for (String migration : java.util.List.of("03a_management", "03b_content", "03c_awards", "03d_guidance"))
                     execute(connection, Files.readString(root.resolve("migrations/20261111_" + migration + ".sql")));
+                execute(connection, Files.readString(root.resolve("migrations/20261112_04_student_profile.sql")));
+                try (var result = statement.executeQuery("SELECT password,token_version FROM sys_user WHERE id=1")) {
+                    assertTrue(result.next()); assertEquals("test-only",result.getString(1)); assertEquals(0,result.getLong(2));
+                }
                 try (var result=statement.executeQuery("SELECT legacy_record,review_comment,participants_snapshot FROM award WHERE id=1")) {
                     assertTrue(result.next());assertEquals(1,result.getInt(1));assertEquals("历史获奖意见",result.getString(2));assertTrue(result.getString(3).contains("原学生"));
                 }
