@@ -44,6 +44,7 @@ public class GuidanceCompletionService {
         if("COMPLETED".equals(current.getStatus()))return;
         if(!"ACTIVE".equals(current.getStatus()))throw new BusinessException("该指导关系已结束，不能完成指导");
         if("CANCELLED".equals(competitions.lockById(current.getCompetitionId()).getStatus()))throw new BusinessException("竞赛已取消");
+        confirmRoster(current);
         current.setStatus("COMPLETED"); current.setActiveKey(null); current.setEndedTime(LocalDateTime.now());current.setEndReason("教师确认完成指导");
         if(current.getMembersSnapshot()==null)current.setMembersSnapshot(snapshotMembers(current.getRegistrationId()));
         guidances.update(null,new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Guidance>().eq(Guidance::getId,id)
@@ -93,9 +94,33 @@ public class GuidanceCompletionService {
         if("CANCELLED".equals(competitions.lockById(guidance.getCompetitionId()).getStatus()))throw new BusinessException("竞赛已取消，不能补录结果");
         if(!dto.getParticipated()&&dto.getWon())throw new BusinessException("未参赛不能选择获奖");
         var student=members(guidance).stream().filter(s->((Number)s.get("userId")).longValue()==studentId).findFirst().orElseThrow(()->new BusinessException(403,"该学生不在本人指导名单中"));
+        if(dto.getParticipated())confirmRoster(guidance);
         var before=jdbc.queryForList("SELECT * FROM participation_result WHERE guidance_id=? AND student_id=?",id,studentId);
         jdbc.update("INSERT INTO participation_result(guidance_id,registration_id,student_id,teacher_id,student_name_snapshot,participated,won,remark) VALUES (?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE participated=VALUES(participated),won=VALUES(won),remark=VALUES(remark)",id,guidance.getRegistrationId(),studentId,guidance.getTeacherId(),student.get("name"),dto.getParticipated()?1:0,dto.getWon()?1:0,dto.getRemark());
         history.record("GUIDANCE",id,"STUDENT_RESULT",before,Map.of("studentId",studentId,"participated",dto.getParticipated(),"won",dto.getWon()),dto.getRemark());
+    }
+
+    @Transactional
+    public void saveTeamResult(Long id,ParticipationResultDTO dto) {
+        Guidance initial=owned(id);var competition=competitions.lockById(initial.getCompetitionId());
+        jdbc.queryForList("SELECT id FROM registration WHERE id=? FOR UPDATE",initial.getRegistrationId());
+        var guidance=guidances.selectOne(new LambdaQueryWrapper<Guidance>().eq(Guidance::getId,id).last("FOR UPDATE"));
+        if(!"TEAM".equals(competition.getCompetitionType()))throw new BusinessException("仅团队赛可整队登记结果");
+        if(!List.of("ACTIVE","COMPLETED").contains(guidance.getStatus()))throw new BusinessException(403,"指导关系已终止");
+        if("CANCELLED".equals(competition.getStatus()))throw new BusinessException("竞赛已取消，不能登记结果");
+        if(!dto.getParticipated()&&dto.getWon())throw new BusinessException("未参赛不能选择获奖");
+        var roster=members(guidance);if(roster.isEmpty())throw new BusinessException("指导名单为空，不能登记结果");
+        for(var student:roster)saveResult(id,((Number)student.get("userId")).longValue(),dto);
+        history.record("GUIDANCE",id,"TEAM_RESULT",null,Map.of("studentIds",roster.stream().map(s->s.get("userId")).toList(),"participated",dto.getParticipated(),"won",dto.getWon()),dto.getRemark());
+    }
+
+    private void confirmRoster(Guidance guidance) {
+        var locked=jdbc.queryForObject("SELECT roster_locked_at IS NOT NULL FROM registration WHERE id=?",Boolean.class,guidance.getRegistrationId());
+        if(Boolean.TRUE.equals(locked))return;
+        if(jdbc.queryForObject("SELECT COUNT(*) FROM team_invitation WHERE registration_id=? AND status='PENDING'",Long.class,guidance.getRegistrationId())>0)throw new BusinessException("仍有待确认的成员邀请，请队长先处理后再确认参赛或完成指导");
+        jdbc.update("UPDATE registration SET roster_locked_at=NOW(),roster_locked_by=? WHERE id=? AND roster_locked_at IS NULL",guidance.getTeacherId(),guidance.getRegistrationId());
+        history.record("REGISTRATION",guidance.getRegistrationId(),"ROSTER_LOCKED",null,Map.of("teacherId",guidance.getTeacherId()),"老师确认参赛或完成指导，锁定名单");
+        for(var member:members(guidance))messages.sendBusinessMessage(((Number)member.get("userId")).longValue(),"参赛名单已锁定","指导老师已确认，队长不能再调整队员。","NOTICE","REGISTRATION",guidance.getRegistrationId());
     }
 
     private void managedTeacher(Long teacherId) {
@@ -109,12 +134,17 @@ public class GuidanceCompletionService {
         return jdbc.queryForList("SELECT q.id,q.competition_id AS competitionId,c.title AS competitionTitle,c.status AS competitionStatus,q.quota,(SELECT COUNT(*) FROM guidance g WHERE g.competition_id=q.competition_id AND g.teacher_id=q.teacher_id AND g.status='ACTIVE') AS assigned,q.quota-(SELECT COUNT(*) FROM guidance g WHERE g.competition_id=q.competition_id AND g.teacher_id=q.teacher_id AND g.status='ACTIVE') AS remaining FROM guidance_quota q JOIN competition c ON c.id=q.competition_id WHERE q.teacher_id=? ORDER BY q.id DESC",teacherId);
     }
 
+    public Map<String,Object> myQuotaSummary() {
+        if (UserContext.get() == null || !"TEACHER".equals(UserContext.get().getRole())) throw new BusinessException(403,"仅教师可查看本人指导名额");
+        return jdbc.queryForMap("SELECT COALESCE(SUM(q.quota),0) AS total, COALESCE(SUM(COALESCE(g.assigned,0)),0) AS assigned, COALESCE(SUM(GREATEST(q.quota-COALESCE(g.assigned,0),0)),0) AS remaining FROM guidance_quota q LEFT JOIN (SELECT competition_id,teacher_id,COUNT(*) AS assigned FROM guidance WHERE status='ACTIVE' GROUP BY competition_id,teacher_id) g ON g.competition_id=q.competition_id AND g.teacher_id=q.teacher_id WHERE q.teacher_id=?",UserContext.getUserId());
+    }
+
     @Transactional
     public void increaseQuota(Long teacherId,Long competitionId,int amount) {
         var competition=competitions.lockById(competitionId);managedTeacher(teacherId);competitions.requireManageable(competitionId);
         if(List.of("ENDED","CANCELLED").contains(competition.getStatus()))throw new BusinessException("已结束或已取消竞赛不能增加名额");
         var teacher=users.lockById(teacherId);if(teacher==null||!Integer.valueOf(1).equals(teacher.getStatus()))throw new BusinessException("教师已停用");
-        var quota=quotas.lockQuota(competitionId,teacherId);if(quota==null)throw new BusinessException("请先在竞赛中配置该指导教师");
+        var quota=quotas.lockQuota(competitionId,teacherId);if(quota==null)throw new BusinessException("请先在竞赛中配置该指导老师");
         if(amount<=0||(long)quota.getQuota()+amount>Integer.MAX_VALUE)throw new BusinessException("新增名额不合法");
         int before=quota.getQuota();quota.setQuota(before+amount);quotas.updateById(quota);
         history.record("GUIDANCE_QUOTA",quota.getId(),"INCREASED",Map.of("quota",before),Map.of("quota",quota.getQuota()),"管理员增加总名额");

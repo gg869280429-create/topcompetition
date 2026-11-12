@@ -96,6 +96,8 @@ CREATE TABLE IF NOT EXISTS `registration` (
     `review_time`    DATETIME     DEFAULT NULL COMMENT '审核时间',
     `reviewer_id`    BIGINT       DEFAULT NULL COMMENT '审核人用户 ID',
     `review_comment` VARCHAR(255) DEFAULT NULL COMMENT '审核意见',
+    `roster_locked_at` DATETIME DEFAULT NULL COMMENT '教师确认参赛或完成指导后的名单锁定时间',
+    `roster_locked_by` BIGINT DEFAULT NULL COMMENT '锁定名单的教师',
     `create_time`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `update_time`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),

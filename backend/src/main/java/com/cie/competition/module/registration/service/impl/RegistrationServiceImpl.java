@@ -219,8 +219,13 @@ public class RegistrationServiceImpl implements RegistrationService {
         List<Long> registrationIds = registrations.stream().map(Registration::getId).toList();
         Map<Long, String> titleMap = competitionService.listTitleMap(competitionIds);
         Map<Long, String> leaderNameMap = userService.listRealNameMap(leaderIds);
-        Map<Long, String> preferredNames = userService.listRealNameMap(registrations.stream()
-                .map(Registration::getPreferredTeacherId).filter(java.util.Objects::nonNull).toList());
+        List<Guidance> guidances = guidanceMapper.selectList(new LambdaQueryWrapper<Guidance>()
+                .in(Guidance::getRegistrationId, registrationIds)
+                .in(Guidance::getStatus, "ACTIVE", "COMPLETED").orderByAsc(Guidance::getId));
+        Map<Long, String> teacherNames = userService.listRealNameMap(java.util.stream.Stream.concat(
+                registrations.stream().map(Registration::getPreferredTeacherId), guidances.stream().map(Guidance::getTeacherId))
+                .filter(java.util.Objects::nonNull).distinct().toList());
+        Map<Long, List<Guidance>> guidancesByReg = guidances.stream().collect(Collectors.groupingBy(Guidance::getRegistrationId));
 
         List<RegistrationMember> allMembers = memberMapper.selectList(new LambdaQueryWrapper<RegistrationMember>()
                 .in(RegistrationMember::getRegistrationId, registrationIds)
@@ -236,7 +241,11 @@ public class RegistrationServiceImpl implements RegistrationService {
             BeanUtils.copyProperties(r, vo);
             vo.setCompetitionTitle(titleMap.get(r.getCompetitionId()));
             vo.setLeaderName(r.getLeaderNameSnapshot() != null ? r.getLeaderNameSnapshot() : leaderNameMap.get(r.getLeaderId()));
-            if (r.getPreferredTeacherId() != null) vo.setPreferredTeacherName(preferredNames.get(r.getPreferredTeacherId()));
+            if (r.getPreferredTeacherId() != null) vo.setPreferredTeacherName(teacherNames.get(r.getPreferredTeacherId()));
+            vo.setGuidanceTeacherNames(guidancesByReg.getOrDefault(r.getId(), List.of()).stream()
+                    .map(g -> teacherNames.get(g.getTeacherId())).filter(java.util.Objects::nonNull).distinct().collect(Collectors.joining("、")));
+            vo.setCanAdjustMembers("APPROVED".equals(r.getStatus()) && r.getRosterLockedAt() == null
+                    && guidancesByReg.getOrDefault(r.getId(), List.of()).stream().noneMatch(g -> "COMPLETED".equals(g.getStatus())));
             List<RegistrationMemberVO> memberVOs = membersByReg.getOrDefault(r.getId(), List.of()).stream().map(m -> {
                 RegistrationMemberVO mv = new RegistrationMemberVO();
                 mv.setUserId(m.getUserId());

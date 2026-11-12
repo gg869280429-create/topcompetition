@@ -75,13 +75,13 @@ public class CompetitionServiceImpl implements CompetitionService {
     public void requireGuidanceAssignable(Long id) {
         Competition competition = lockById(id);
         if (Set.of("ENDED", "CANCELLED").contains(competition.getStatus()))
-            throw new BusinessException("竞赛已结束或取消，不能分配指导教师");
+            throw new BusinessException("竞赛已结束或取消，不能分配指导老师");
     }
 
     @Override
     public void validateTeacher(Long competitionId, Long teacherId) {
         if (teacherId == null || competitionMapper.countEligibleTeacher(competitionId, teacherId) == 0)
-            throw new BusinessException("请选择本竞赛配置的启用指导教师");
+            throw new BusinessException("请选择本竞赛配置的启用指导老师");
     }
 
     @Override

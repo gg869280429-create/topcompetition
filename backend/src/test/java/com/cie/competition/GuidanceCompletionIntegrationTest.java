@@ -78,6 +78,18 @@ class GuidanceCompletionIntegrationTest extends IsolatedDatabaseTest {
         assertEquals(3,jdbc.queryForObject("SELECT quota FROM guidance_quota WHERE competition_id=? AND teacher_id=?",Integer.class,competition,teacher));
         assertEquals(3,request("GET","/guidance/quota/mine",teacherToken,null,200).path("records").get(0).path("remaining").asInt());
     }
+
+    @Test void quotaSummaryCountsOwnConfiguredQuotaAndActiveTeams()throws Exception{
+        jdbc.update("UPDATE guidance_quota SET quota=4 WHERE competition_id=? AND teacher_id=?",competition,teacher);
+        jdbc.update("INSERT INTO guidance_quota(competition_id,teacher_id,quota) VALUES (?,?,50)",competition,other);
+        var before=request("GET","/guidance/quota/summary",teacherToken,null,200);
+        assertEquals(4,before.path("total").asInt());assertEquals(1,before.path("assigned").asInt());assertEquals(3,before.path("remaining").asInt());
+        assertEquals(50,request("GET","/guidance/quota/summary",otherToken,null,200).path("total").asInt());
+        request("POST","/guidance/"+guidance+"/complete",teacherToken,null,200);
+        var after=request("GET","/guidance/quota/summary",teacherToken,null,200);
+        assertEquals(4,after.path("total").asInt());assertEquals(0,after.path("assigned").asInt());assertEquals(4,after.path("remaining").asInt());
+        request("GET","/guidance/quota/summary",adminToken,null,403);
+    }
     @Test void competitionCancellationBlocksAwardsAndClosesPendingWorkWithoutRepeatingRelease()throws Exception{
         jdbc.update("INSERT INTO award(competition_id,registration_id,award_level,status) VALUES (?,?,'FIRST','APPROVED')",competition,registration);
         String path="/competition/"+competition+"/status?status=CANCELLED&reason=organizer_cancelled";

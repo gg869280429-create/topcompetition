@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -36,6 +37,12 @@ public class GuidanceController {
     @GetMapping("/{id}/results")
     @PreAuthorize("hasRole('TEACHER')")
     public Result<?> results(@PathVariable Long id) { return Result.success(completion.results(id)); }
+
+    @PutMapping("/{id}/results/team")
+    @PreAuthorize("hasRole('TEACHER')")
+    public Result<Void> teamResult(@PathVariable Long id,@Valid @RequestBody com.cie.competition.module.guidance.dto.ParticipationResultDTO dto) {
+        completion.saveTeamResult(id,dto);return Result.success();
+    }
 
     @org.springframework.web.bind.annotation.PutMapping("/{id}/results/{studentId}")
     @PreAuthorize("hasRole('TEACHER')")
@@ -99,6 +106,10 @@ public class GuidanceController {
     public Result<PageResult<GuidanceQuotaVO>> myCompetitions(@RequestParam(defaultValue="1") long current, @RequestParam(defaultValue="10") long size) {
         return Result.success(guidanceService.quotaPage(null, current, size));
     }
+
+    @GetMapping("/quota/summary")
+    @PreAuthorize("hasRole('TEACHER')")
+    public Result<?> quotaSummary() { return Result.success(completion.myQuotaSummary()); }
 
     @GetMapping("/teachers")
     public Result<List<com.cie.competition.module.guidance.vo.CompetitionTeacherVO>> teachers(@RequestParam Long competitionId) {

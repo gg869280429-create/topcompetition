@@ -37,7 +37,7 @@ public class CompetitionDTO {
     private Long documentFileId;
 
     @jakarta.validation.Valid
-    @NotNull(message = "请配置指导教师")
+    @NotNull(message = "请配置指导老师")
     private java.util.List<CompetitionTeacherDTO> teachers;
 
     private Long managerId;
@@ -56,8 +56,8 @@ public class CompetitionDTO {
     @Min(value = 1, message = "团队人数上限至少为1")
     private Integer maxMembers;
 
-    @NotNull(message = "指导教师数量上限不能为空")
-    @Min(value = 1, message = "指导教师数量上限至少为1")
+    @NotNull(message = "指导老师数量上限不能为空")
+    @Min(value = 1, message = "指导老师数量上限至少为1")
     private Integer maxTeachers;
 
     /** 是否允许跨专业组队：1 是，0 否 */

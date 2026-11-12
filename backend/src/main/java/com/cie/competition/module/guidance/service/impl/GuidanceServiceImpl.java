@@ -177,7 +177,7 @@ public class GuidanceServiceImpl implements GuidanceService {
         long teacherCount = guidanceMapper.selectList(new LambdaQueryWrapper<Guidance>()
                 .eq(Guidance::getRegistrationId, dto.getRegistrationId()).eq(Guidance::getStatus, "ACTIVE").last("FOR UPDATE")).size();
         if (teacherCount >= competition.getMaxTeachers()) {
-            throw new BusinessException("该团队指导教师数量已达上限");
+            throw new BusinessException("该团队指导老师数量已达上限");
         }
 
         GuidanceQuota quota = quotaMapper.lockQuota(competitionId, dto.getTeacherId());
@@ -224,7 +224,7 @@ public class GuidanceServiceImpl implements GuidanceService {
         competitionService.lockById(previous.getCompetitionId());
         competitionService.requireGuidanceAssignable(previous.getCompetitionId());
         registrationService.lockForAssignment(previous.getRegistrationId());
-        if (previous.getTeacherId().equals(dto.getTeacherId())) throw new BusinessException("请选择不同的指导教师");
+        if (previous.getTeacherId().equals(dto.getTeacherId())) throw new BusinessException("请选择不同的指导老师");
         // 调剂两端按统一顺序锁定教师和名额，失败时恢复原指导关系。
         var teacherIds = java.util.stream.Stream.of(previous.getTeacherId(), dto.getTeacherId()).sorted().toList();
         for (Long teacherId : teacherIds) teacherService.lockActive(teacherId);
@@ -244,7 +244,7 @@ public class GuidanceServiceImpl implements GuidanceService {
     private void notifyAssignment(GuidanceAssignDTO dto) {
         var registration = registrationService.getById(dto.getRegistrationId());
         String teacherName = userService.getById(dto.getTeacherId()).getRealName();
-        String content = "团队「" + registration.getTeamName() + "」的指导教师已确认为「" + teacherName + "」。"
+        String content = "团队「" + registration.getTeamName() + "」的指导老师已确认为「" + teacherName + "」。"
                 + (org.springframework.util.StringUtils.hasText(dto.getComment()) ? "原因：" + dto.getComment() : "");
         for (var member : registration.getMembers()) messageService.sendBusinessMessage(member.getUserId(), "指导安排", content, "NOTICE", "REGISTRATION", dto.getRegistrationId());
         messageService.sendBusinessMessage(dto.getTeacherId(), "新增指导团队", content, "NOTICE", "REGISTRATION", dto.getRegistrationId());
@@ -252,7 +252,7 @@ public class GuidanceServiceImpl implements GuidanceService {
 
     private void requireAdministrator() {
         String role = UserContext.get().getRole();
-        if (!"ADMIN".equals(role) && !"MAJOR_ADMIN".equals(role)) throw new BusinessException(403, "仅管理员可分配指导教师");
+        if (!"ADMIN".equals(role) && !"MAJOR_ADMIN".equals(role)) throw new BusinessException(403, "仅管理员可分配指导老师");
     }
 
     @Override

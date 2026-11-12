@@ -3,8 +3,8 @@
     <div class="resource-title">竞赛文件</div>
     <el-button v-if="competition.documentFileId" link type="primary" :loading="downloading" @click="download">{{ competition.documentName || '下载竞赛文件' }}</el-button>
     <span v-else>暂未上传</span>
-    <div class="resource-title">竞赛指导教师</div>
-    <el-empty v-if="!loading && !teachers.length" description="暂未配置指导教师" :image-size="50" />
+    <div class="resource-title">竞赛指导老师</div>
+    <el-empty v-if="!loading && !teachers.length" description="暂未配置指导老师" :image-size="50" />
     <div v-for="t in teachers" :key="t.teacherId" class="teacher">
       <div><strong>{{ t.teacherName }}</strong> · {{ t.majorName || '专业未设置' }} · 剩余 {{ t.remaining }} / {{ t.quota }} 个团队名额</div>
       <div>擅长方向：{{ t.expertise || '暂未填写' }}</div>

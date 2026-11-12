@@ -33,6 +33,7 @@ export const respondInvitation = (id, accepted) => request.put(`/registration/in
 export const revokeInvitation = id => request.delete(`/registration/invitations/${id}`)
 export const registrationHistory = id => request.get(`/registration/${id}/history`)
 export const adjustRegistration = (id, reason) => request.post(`/registration/${id}/adjustment`, { reason })
+export const updateTeamMembers = (id, data) => request.put(`/registration/${id}/members`, data)
 export const reapplyRegistration = (id, reason) => request.post(`/registration/${id}/reapply`, { reason })
 export const requestWithdrawal = (id, reason) => request.post(`/registration/${id}/withdrawals`, { reason })
 export const reviewWithdrawal = (id, result, comment) => request.put(`/registration/withdrawals/${id}/review`, { result, comment })

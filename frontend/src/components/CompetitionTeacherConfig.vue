@@ -8,7 +8,7 @@
       <el-input-number :model-value="row.quota" :min="1" aria-label="可指导团队数" @update:model-value="change(index, 'quota', $event)" />
       <el-button type="danger" link @click="emit('update:modelValue', modelValue.filter((_, i) => i !== index))">移除</el-button>
     </div>
-    <el-button @click="emit('update:modelValue', [...modelValue, { teacherId: null, quota: 1 }])">添加指导教师</el-button>
+    <el-button @click="emit('update:modelValue', [...modelValue, { teacherId: null, quota: 1 }])">添加指导老师</el-button>
     <div class="hint">为每位教师设置可指导的团队数量，教师无需自行报名。</div>
   </div>
 </template>

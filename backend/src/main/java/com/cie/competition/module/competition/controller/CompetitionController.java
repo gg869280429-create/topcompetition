@@ -76,4 +76,10 @@ public class CompetitionController {
         competitionService.updateStatus(id, status, reason);
         return Result.success();
     }
+
+    @PostMapping("/{id}/publish")
+    @PreAuthorize("hasAnyRole('ADMIN','MAJOR_ADMIN')")
+    public Result<Long> publish(@PathVariable Long id, @Valid @RequestBody com.cie.competition.module.competition.dto.CompetitionPublishDTO dto) {
+        return Result.success(managementService.publish(id, dto));
+    }
 }

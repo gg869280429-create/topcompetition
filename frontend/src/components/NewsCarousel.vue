@@ -1,23 +1,18 @@
 <template>
   <section v-loading="loading && !news.length" aria-label="竞赛新闻轮播">
-    <el-carousel v-if="news.length" :interval="5000" height="400px" class="news-carousel" arrow="always" trigger="click" :pause-on-hover="true">
+    <el-carousel v-if="news.length" :interval="5000" class="news-carousel" arrow="always" trigger="click" :pause-on-hover="true" @change="activeIndex = $event">
       <el-carousel-item v-for="item in news" :key="item.id">
         <article class="news-slide">
           <a :href="item.officialUrl" target="_blank" rel="noopener noreferrer" :aria-label="`${item.title}：前往比赛官网`" class="cover-link">
             <img :src="item.coverUrl" :alt="item.title" />
           </a>
-          <div class="news-caption">
-            <span class="news-date">{{ item.publishTime || '竞赛新闻' }}</span>
-            <h2>{{ item.title }}</h2>
-            <p>{{ item.content || '了解竞赛安排、参赛要求与最新动态。' }}</p>
-            <div class="news-actions">
-              <el-button type="primary" @click="openDetail(item)">查看详情</el-button>
-              <a :href="item.officialUrl" target="_blank" rel="noopener noreferrer">比赛官网 ↗</a>
-            </div>
-          </div>
         </article>
       </el-carousel-item>
     </el-carousel>
+    <div v-if="activeNews" class="news-info">
+      <h2 :title="activeNews.title">{{ activeNews.title }}</h2>
+      <el-button link type="primary" @click="openDetail(activeNews)">查看详情</el-button>
+    </div>
     <el-empty v-else-if="!loading" :description="failed ? '新闻暂时加载失败，请稍后刷新' : '暂无竞赛新闻，敬请期待'" />
   </section>
 
@@ -33,9 +28,11 @@
   </el-dialog>
 </template>
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { contentCarousel, getContent, getContentCover } from '@/api/content'
 const news = ref([])
+const activeIndex = ref(0)
+const activeNews = computed(() => news.value[activeIndex.value] || news.value[0])
 const loading = ref(false), failed = ref(false)
 const detailVisible = ref(false), detailLoading = ref(false), detail = ref({}), detailCover = ref('')
 let timer, stopped = false, detailVersion = 0
@@ -90,23 +87,29 @@ onMounted(() => { refresh(); timer=setInterval(refresh,15000); document.addEvent
 onUnmounted(() => { stopped=true; clearInterval(timer); document.removeEventListener('visibilitychange',visible); release(news.value); clearDetail() })
 </script>
 <style scoped>
-.news-carousel { margin-bottom:20px; border-radius:8px; overflow:hidden; }
-.news-slide { height:100%; position:relative; color:white; background:#182b4d; }
-.cover-link { display:block; height:100%; }
-.cover-link img { width:100%; height:100%; object-fit:cover; }
-.news-caption { position:absolute; bottom:0; left:0; right:0; padding:24px 48px 38px; background:rgba(0,0,0,.68); pointer-events:none; }
-.news-date { font-size:12px; opacity:.85; }
-.news-caption h2 { margin:8px 0; font-size:26px; line-height:1.3; }
-.news-caption p { margin:0 0 16px; font-size:14px; line-height:1.7; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
-.news-actions { display:flex; align-items:center; gap:20px; }
-.news-actions a, .news-actions button { pointer-events:auto; }
-.news-actions a { color:white; text-decoration:underline; }
+.news-carousel { overflow:hidden; background:#f5f5f5; }
+.news-carousel :deep(.el-carousel__container) { width:100%; height:auto; aspect-ratio:1226 / 460; min-height:220px; max-height:460px; }
+.news-slide, .cover-link { display:block; height:100%; }
+.cover-link img { display:block; width:100%; height:100%; object-fit:contain; }
+.cover-link:focus-visible { outline:2px solid var(--el-color-primary); outline-offset:-3px; }
+.news-carousel :deep(.el-carousel__arrow) { width:40px; height:68px; border-radius:0; background:transparent; color:#777; font-size:24px; }
+.news-carousel :deep(.el-carousel__arrow:hover), .news-carousel :deep(.el-carousel__arrow:focus-visible) { background:rgba(0,0,0,.45); color:#fff; }
+.news-carousel :deep(.el-carousel__arrow--left) { left:0; }
+.news-carousel :deep(.el-carousel__arrow--right) { right:0; }
+.news-carousel :deep(.el-carousel__indicators--horizontal) { left:auto; right:26px; bottom:16px; transform:none; }
+.news-carousel :deep(.el-carousel__indicator--horizontal) { padding:4px; }
+.news-carousel :deep(.el-carousel__button) { width:10px; height:10px; box-sizing:border-box; border:2px solid rgba(255,255,255,.65); border-radius:50%; background:#888; opacity:1; }
+.news-carousel :deep(.el-carousel__indicator.is-active .el-carousel__button) { background:#fff; border-color:#888; }
+.news-info { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:16px 20px; background:var(--color-bg-card); }
+.news-info h2 { min-width:0; margin:0; color:var(--color-text); font-size:15px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.news-info .el-button { flex-shrink:0; }
 .news-detail { min-height:100px; }
 .detail-meta { margin-bottom:16px; color:var(--color-text-secondary); }
 .detail-cover { display:block; max-width:100%; max-height:320px; margin:0 auto 20px; object-fit:contain; }
 .detail-content { white-space:pre-wrap; line-height:1.8; overflow-wrap:anywhere; }
 @media (max-width:600px) {
-  .news-caption { padding:20px 24px 36px; }
-  .news-caption h2 { font-size:20px; }
+  .news-carousel :deep(.el-carousel__container) { min-height:200px; }
+  .news-carousel :deep(.el-carousel__indicators--horizontal) { right:12px; bottom:10px; }
+  .news-info { padding:12px; gap:12px; }
 }
 </style>

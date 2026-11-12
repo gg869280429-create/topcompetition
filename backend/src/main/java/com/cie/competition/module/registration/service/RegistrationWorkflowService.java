@@ -5,7 +5,6 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cie.competition.common.exception.BusinessException;
 import com.cie.competition.common.security.UserContext;
 import com.cie.competition.module.competition.service.CompetitionService;
-import com.cie.competition.module.competition.vo.CompetitionVO;
 import com.cie.competition.module.guidance.service.GuidanceLifecycleService;
 import com.cie.competition.module.history.service.BusinessHistoryService;
 import com.cie.competition.module.message.service.MessageService;
@@ -36,6 +35,8 @@ public class RegistrationWorkflowService {
  private final GuidanceLifecycleService guidance;
  private final MessageService messages;
  private final JdbcTemplate jdbc;
+ private final RegistrationMemberValidator memberValidator;
+ private final TeamRosterService roster;
 
  @Transactional
  public Long create(RegistrationDTO dto) {
@@ -101,13 +102,7 @@ public class RegistrationWorkflowService {
 
  @Transactional
  public void adjust(Long id,String reason) {
-  role("STUDENT");Registration r=lock(id);leader(r);reason(reason);competitions.requireRegistrationOpen(r.getCompetitionId());
-  if(!"APPROVED".equals(r.getStatus()))throw new BusinessException("仅已通过报名可申请调整");
-  if(withdrawals.selectCount(new LambdaQueryWrapper<WithdrawalRequest>().eq(WithdrawalRequest::getRegistrationId,id).eq(WithdrawalRequest::getStatus,"PENDING"))>0)throw new BusinessException("请先完成待审核退赛申请");
-  noAward(id);guidance.endActive(id,reason);history.record("REGISTRATION",id,"ADJUST",snapshot(r),"DRAFT",reason);
-  notifyMembers(r,"报名调整","队长申请调整团队，需要重新确认及审核："+reason);
-  release(id);r.setStatus("DRAFT");registrations.updateById(r);
-  for(var m:current(id))if(!m.getUserId().equals(r.getLeaderId())) invite(r,m.getUserId(),true);
+  roster.beginAdjustment(id,reason);
  }
 
  @Transactional
@@ -127,6 +122,7 @@ public class RegistrationWorkflowService {
  public void respond(Long invitationId,boolean accept) {
   role("STUDENT");TeamInvitation previous=invitations.selectById(invitationId);if(previous==null)throw new BusinessException("邀请不存在");
   Registration r=lock(previous.getRegistrationId());TeamInvitation invite=invitations.selectById(invitationId);
+  if("APPROVED".equals(r.getStatus())){roster.respond(invitationId,accept);return;}
   if(!Objects.equals(invite.getInviteeId(),UserContext.getUserId()))throw new BusinessException(403,"仅被邀请人可响应");
   if(!"PENDING".equals(invite.getStatus())||!"DRAFT".equals(r.getStatus()))throw new BusinessException("邀请已处理或报名不可变更");
   competitions.requireRegistrationOpen(r.getCompetitionId());
@@ -142,6 +138,7 @@ public class RegistrationWorkflowService {
  public void revoke(Long invitationId) {
   role("STUDENT");var previous=invitations.selectById(invitationId);if(previous==null)throw new BusinessException("邀请不存在");
   Registration r=lock(previous.getRegistrationId());leader(r);var invite=invitations.selectById(invitationId);
+  if("APPROVED".equals(r.getStatus())){roster.revoke(invitationId);return;}
   if(!"DRAFT".equals(r.getStatus())||!List.of("PENDING","ACCEPTED","REJECTED").contains(invite.getStatus()))throw new BusinessException("当前邀请不可撤销");
   competitions.requireRegistrationOpen(r.getCompetitionId());
   invite.setStatus("REVOKED");invite.setRespondedTime(LocalDateTime.now());invitations.updateById(invite);
@@ -204,13 +201,8 @@ public class RegistrationWorkflowService {
  private int cross(List<User> users){return users.stream().map(User::getMajorId).distinct().count()>1?1:0;}
  private String majorName(Long id){var names=jdbc.queryForList("SELECT name FROM sys_major WHERE id=?",String.class,id);return names.isEmpty()?null:names.get(0);}
  private List<User> validate(RegistrationDTO dto,Long leader){
-  CompetitionVO c=competitions.getById(dto.getCompetitionId());competitions.validateTeacher(dto.getCompetitionId(),dto.getPreferredTeacherId());
-  var others=dto.getMemberIds()==null?List.<Long>of():dto.getMemberIds();
-  if(others.stream().anyMatch(Objects::isNull)||others.contains(leader)||others.stream().distinct().count()!=others.size())throw new BusinessException("成员不能重复、为空或重复包含队长");
-  List<Long> ids=new ArrayList<>();ids.add(leader);ids.addAll(others);
-  if(ids.size()>c.getMaxMembers()||("PERSONAL".equals(c.getCompetitionType())&&ids.size()!=1))throw new BusinessException("成员人数不符合赛制");
-  List<User> result=new ArrayList<>();for(Long id:ids){var u=users.selectById(id);if(u==null||!"STUDENT".equals(u.getRole())||!Integer.valueOf(1).equals(u.getStatus())||u.getMajorId()==null)throw new BusinessException("成员须为已启用且有专业的真实学生");result.add(u);}
-  if(cross(result)==1&&!Integer.valueOf(1).equals(c.getAllowCrossMajor()))throw new BusinessException("不允许跨专业组队");return result;
+  competitions.validateTeacher(dto.getCompetitionId(),dto.getPreferredTeacherId());
+  return memberValidator.validate(dto.getCompetitionId(),leader,dto.getMemberIds());
  }
  private void replaceMembers(Registration r,List<User> people){
   var before=current(r.getId());Set<Long> oldIds=new HashSet<>();before.forEach(m->oldIds.add(m.getUserId()));Set<Long> newIds=new HashSet<>();people.forEach(u->newIds.add(u.getId()));

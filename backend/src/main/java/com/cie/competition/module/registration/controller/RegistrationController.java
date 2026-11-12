@@ -27,6 +27,13 @@ public class RegistrationController {
     private final RegistrationService registrationService;
     private final com.cie.competition.module.registration.service.RegistrationWorkflowService workflow;
     private final com.cie.competition.module.registration.service.RegistrationReviewService reviewService;
+    private final com.cie.competition.module.registration.service.TeamRosterService roster;
+
+    @PutMapping("/{id}/members")
+    @PreAuthorize("hasRole('STUDENT')")
+    public Result<Void> members(@PathVariable Long id,@Valid @RequestBody com.cie.competition.module.registration.dto.TeamMembersDTO dto) {
+        roster.update(id,dto);return Result.success();
+    }
 
     @GetMapping("/page")
     @PreAuthorize("hasAnyRole('ADMIN','MAJOR_ADMIN')")

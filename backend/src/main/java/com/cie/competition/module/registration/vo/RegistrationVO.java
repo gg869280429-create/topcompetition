@@ -19,6 +19,8 @@ public class RegistrationVO {
 
     private String preferredTeacherName;
 
+    private String guidanceTeacherNames;
+
     private String competitionTitle;
 
     private String teamName;
@@ -40,6 +42,10 @@ public class RegistrationVO {
     private Long reviewerId;
 
     private String reviewComment;
+
+    private LocalDateTime rosterLockedAt;
+
+    private Boolean canAdjustMembers;
 
     private List<RegistrationMemberVO> members;
 

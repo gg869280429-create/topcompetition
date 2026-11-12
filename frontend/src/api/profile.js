@@ -1,13 +1,13 @@
 import request from './request'
 
-export function getStudentProfile() {
-  return request.get('/student/profile')
+export function getProfile() {
+  return request.get('/profile')
 }
 
-export function updateStudentProfile(data) {
-  return request.put('/student/profile', data)
+export function updateProfile(data) {
+  return request.put('/profile', data)
 }
 
-export function changeStudentPassword(data) {
-  return request.put('/student/profile/password', data)
+export function changePassword(data) {
+  return request.put('/profile/password', data)
 }

@@ -80,6 +80,7 @@
 | `frontend/yarn.lock` | Yarn 的依赖版本锁定文件。当前项目同时保留两份锁文件，分别供对应工具使用。 |
 | `frontend/vite.config.js` | Vite 开发及构建配置，包括路径别名、5173 端口和 `/api` 到后端的代理。 |
 | `frontend/index.html` | 浏览器加载的 HTML 入口。 |
+| `frontend/更新的登录页面.html` | 用户提供的登录页设计参考，正式登录入口由 Vue 登录页实现。 |
 | `frontend/src/main.js` | 初始化 Vue、路由、状态管理、组件库及全局样式。 |
 | `frontend/src/App.vue` | 顶层 Vue 组件。 |
 | `frontend/src/router/index.js` | 页面路由、登录检查和角色访问限制。 |
@@ -87,6 +88,7 @@
 | `frontend/src/layout/index.vue` | 登录后的公共外壳：菜单、顶部栏、用户入口、消息及庆祝组件。 |
 | `frontend/src/api/request.js` | Axios 公共配置，附加 Token、处理统一响应和错误。 |
 | `frontend/src/api/auth.js` | 登录和当前登录用户接口。 |
+| `frontend/src/api/profile.js` | 学生本人资料查询、修改及修改密码接口。 |
 | `frontend/src/api/{competition,registration,guidance,award,content,message,major,student,user,teacher,statistics,file}.js` | 对应业务模块的接口调用封装；花括号表示这一组实际文件。 |
 | `frontend/src/constants/dict.js` | 状态、奖项和竞赛类别等展示字典。 |
 | `frontend/src/styles/index.css` | 全局主题、间距、字号及公共样式。 |
@@ -99,7 +101,7 @@
 
 | 页面目录 | 页面作用 |
 | --- | --- |
-| `views/login/` | 登录。 |
+| `views/login/` | 账号密码登录，采用提供的 HTML 分栏样式；保留原认证接口，移除注册及第三方登录入口。 |
 | `views/dashboard/` | 学生、教师首页展示管理员新闻轮播；管理员首页保留竞赛卡片及操作入口。 |
 | `views/competition/` | 竞赛查询、发布、编辑、分类及状态操作。 |
 | `views/registration/` | 报名、邀请、审核、团队及退赛管理。 |
@@ -108,6 +110,7 @@
 | `views/content/` | 管理员新闻管理；学生和教师的“竞赛预览”，展示原首页竞赛卡片及详情、报名入口。 |
 | `views/major/` | 专业管理。 |
 | `views/student/` | 学生账号管理。 |
+| `views/profile/` | 学生个人信息、教师个人中心；教师增加指导名额、历史获奖及费用审批占位，从头像下拉也可进入。 |
 | `views/teacher/` | 教师库、教师详情及指导名额维护。 |
 | `views/statistics/` | 统计卡片和图表。 |
 | `views/error/403.vue` | 无权访问页面。 |
@@ -119,9 +122,12 @@
 | `CompetitionResources.vue` | 竞赛资料展示和访问。 |
 | `CompetitionPreview.vue` | 复用竞赛卡片、详情、教师资料及学生报名入口，供管理员首页和师生竞赛预览使用。 |
 | `CompetitionTeacherConfig.vue` | 竞赛教师及指导名额配置界面。 |
+| `ProfileSettings.vue` | 师生共用的本人资料逐项编辑及密码设置，账号和专业只读。 |
+| `GuidanceQuotaSummary.vue` | 教师本人剩余、正在指导和总共指导名额汇总。 |
 | `MessageDrawer.vue` | 站内消息抽屉和业务详情跳转。 |
 | `NewsCarousel.vue` | 已发布且开启轮播的新闻封面、标题、摘要、详情弹窗及官网链接。 |
 | `AwardCelebration.vue` | 教师获奖庆祝、依次展示及后端去重交互。 |
+| `LoginCharacters.vue` | 登录页角色插画、鼠标跟随及输入互动；页面退出时清理动画与事件。 |
 
 ## SQL 文件
 
@@ -136,6 +142,8 @@
 | `sql/migrations/20261111_03b_content.sql` | 新闻官网、轮播开关及排序。 |
 | `sql/migrations/20261111_03c_awards.sql` | 成果材料、实际获奖学生、指导教师、庆祝状态及成果唯一索引。 |
 | `sql/migrations/20261111_03d_guidance.sql` | 指导成员快照及逐学生参赛结果表。 |
+| `sql/migrations/20261112_04_student_profile.sql` | 登录版本字段，学生修改密码后使旧登录凭证失效。 |
+| `sql/migrations/20261112_05_teacher_roster.sql` | 名单锁定时间及教师字段；兼容已有参赛结果、已完成指导及有效获奖的历史名单。 |
 
 迁移脚本有执行前提和顺序，不能将整个目录的脚本反复执行。当前业务库的执行记录见迁移和排查文档。
 
@@ -144,6 +152,11 @@
 | 文件 | 用途 |
 | --- | --- |
 | `project-directory.md` | 本文，目录及文件用途。 |
+| `reader-home-20261112.md` | 师生首页新闻轮播及竞赛预览调整。 |
+| `student-profile-20261112.md` | 学生个人资料、密码、登录版本迁移及轮播样式验收。 |
+| `login-redesign-20261112.md` | 登录 HTML 迁移、移除入口及登录回归结果。 |
+| `admin-enhancements-20261112.md` | 同步发布竞赛新闻、报名管理分配教师与大师工作室占位页验收。 |
+| `teacher-center-20261112.md` | 教师个人中心、名额汇总、队长调整名单、整队结果登记和迁移验收。 |
 | `local-configuration.md` | 本机、测试、生产配置与启动方法。 |
 | `teacher-intention.md` | 教师库、报名意向教师及管理员确认方案。 |
 | `backend-endpoint-inventory.md` | 后端接口方法与路径清单。 |

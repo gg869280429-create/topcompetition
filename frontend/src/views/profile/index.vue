@@ -1,105 +1,60 @@
 <template>
-  <div>
-    <PageHeader title="个人信息管理" />
-    <div class="profile-grid">
-      <PageContainer v-loading="loading">
-        <h2>基本信息</h2>
-        <el-form ref="profileForm" :model="profile" :rules="profileRules" label-position="top" @submit.prevent="saveProfile">
-          <el-form-item label="账号"><el-input :model-value="profile.username" disabled /></el-form-item>
-          <el-form-item label="所属专业">
-            <el-input :model-value="profile.majorName || '未配置，请联系管理员维护'" disabled />
-          </el-form-item>
-          <p class="form-hint">账号和所属专业由管理员维护。</p>
-          <el-form-item label="姓名" prop="realName"><el-input v-model="profile.realName" maxlength="64" /></el-form-item>
-          <el-form-item label="手机号" prop="phone"><el-input v-model="profile.phone" maxlength="32" type="tel" /></el-form-item>
-          <el-form-item label="邮箱" prop="email"><el-input v-model="profile.email" maxlength="128" /></el-form-item>
-          <el-button type="primary" native-type="submit" :loading="saving" :disabled="loading || !profile.id">保存个人信息</el-button>
-        </el-form>
-      </PageContainer>
-      <PageContainer>
-        <h2>修改密码</h2>
-        <p class="form-hint">新密码至少8个字符，且UTF-8编码不超过72字节。修改成功后需要重新登录。</p>
-        <el-form ref="passwordForm" :model="password" :rules="passwordRules" label-position="top" @submit.prevent="savePassword">
-          <el-form-item label="原密码" prop="currentPassword">
-            <el-input v-model="password.currentPassword" type="password" show-password autocomplete="current-password" maxlength="72" />
-          </el-form-item>
-          <el-form-item label="新密码" prop="newPassword">
-            <el-input v-model="password.newPassword" type="password" show-password autocomplete="new-password" maxlength="72" />
-          </el-form-item>
-          <el-form-item label="确认新密码" prop="confirmPassword">
-            <el-input v-model="password.confirmPassword" type="password" show-password autocomplete="new-password" maxlength="72" />
-          </el-form-item>
-          <el-button type="primary" native-type="submit" :loading="changingPassword">修改密码并重新登录</el-button>
-        </el-form>
-      </PageContainer>
-    </div>
+  <div class="personal-center">
+    <PageHeader :title="isTeacher ? '个人中心' : '个人信息'" />
+    <template v-if="isTeacher">
+      <el-tabs v-model="tab" @tab-change="loadTab">
+        <el-tab-pane label="个人资料" name="profile"><ProfileSettings /></el-tab-pane>
+        <el-tab-pane label="指导名额" name="quota">
+          <GuidanceQuotaSummary v-if="tab === 'quota'" />
+          <PageContainer v-loading="loading">
+            <el-table :data="quotas" border stripe><el-table-column prop="competitionTitle" label="竞赛" min-width="180"/><el-table-column prop="remaining" label="剩余指导名额" min-width="130"/><el-table-column prop="assigned" label="正在指导名额" min-width="130"/><el-table-column prop="quota" label="总共指导名额" min-width="130"/></el-table>
+            <el-pagination v-model:current-page="quotaPage" :total="quotaTotal" :page-size="10" layout="total,prev,pager,next" @current-change="loadQuotas" />
+          </PageContainer>
+        </el-tab-pane>
+        <el-tab-pane label="历史获奖" name="awards">
+          <PageContainer v-loading="loading">
+            <el-table :data="awards" border stripe><el-table-column prop="competitionTitle" label="竞赛" min-width="170"/><el-table-column prop="achievementName" label="获奖成果" min-width="170"/><el-table-column label="奖项" min-width="100"><template #default="{row}">{{ AWARD_LEVEL[row.awardLevel] || row.awardLevel }}</template></el-table-column><el-table-column prop="awardTime" label="获奖日期" min-width="170"/><el-table-column label="操作" width="90"><template #default="{row}"><el-button link type="primary" @click="router.push({path:'/award',query:{detail:row.id}})">查看详情</el-button></template></el-table-column></el-table>
+            <el-pagination v-model:current-page="awardPage" :total="awardTotal" :page-size="10" layout="total,prev,pager,next" @current-change="loadAwards" />
+          </PageContainer>
+        </el-tab-pane>
+        <el-tab-pane label="竞赛费用申报审批" name="expenses"><PageContainer><el-empty description="敬请期待" /></PageContainer></el-tab-pane>
+      </el-tabs>
+    </template>
+    <ProfileSettings v-else />
   </div>
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { useUserStore } from '@/store/user'
 import PageHeader from '@/components/PageHeader.vue'
 import PageContainer from '@/components/PageContainer.vue'
-import { useUserStore } from '@/store/user'
-import { getStudentProfile, updateStudentProfile, changeStudentPassword } from '@/api/profile'
-
-const router = useRouter(), userStore = useUserStore()
-const profileForm = ref(), passwordForm = ref()
-const loading = ref(false), saving = ref(false), changingPassword = ref(false)
-const profile = reactive({ id: null, username: '', majorName: '', realName: '', phone: '', email: '' })
-const password = reactive({ currentPassword: '', newPassword: '', confirmPassword: '' })
-const profileRules = {
-  realName: [{ required: true, whitespace: true, message: '请输入姓名', trigger: 'blur' }],
-  phone: [{ pattern: /^[0-9+()\-\s]{0,32}$/, message: '联系电话格式不正确', trigger: 'blur' }],
-  email: [{ type: 'email', message: '邮箱格式不正确', trigger: 'blur' }]
-}
-const passwordRules = {
-  currentPassword: [{ required: true, message: '请输入原密码', trigger: 'blur' }],
-  newPassword: [{ validator: (_, value, done) => {
-    if (!value || value.length < 8) return done(new Error('新密码至少8个字符'))
-    if (new TextEncoder().encode(value).length > 72) return done(new Error('新密码的UTF-8编码不能超过72字节'))
-    if (value === password.currentPassword) return done(new Error('新密码不能与原密码相同'))
-    done()
-  }, trigger: 'blur' }],
-  confirmPassword: [{ validator: (_, value, done) => {
-    done(!value || value !== password.newPassword ? new Error('两次输入的新密码不一致') : undefined)
-  }, trigger: 'blur' }]
-}
-
-async function load() {
+import ProfileSettings from '@/components/ProfileSettings.vue'
+import GuidanceQuotaSummary from '@/components/GuidanceQuotaSummary.vue'
+import { pageMyCompetitions } from '@/api/guidance'
+import request from '@/api/request'
+import { AWARD_LEVEL } from '@/constants/dict'
+const router = useRouter(), store = useUserStore(), isTeacher = computed(() => store.role === 'TEACHER')
+const tab = ref('profile'), loading = ref(false), quotas = ref([]), awards = ref([])
+const quotaPage = ref(1), quotaTotal = ref(0), awardPage = ref(1), awardTotal = ref(0)
+async function loadQuotas() {
   loading.value = true
-  try { Object.assign(profile, (await getStudentProfile()).data) }
+  try { const response = await pageMyCompetitions({ current: quotaPage.value, size: 10 }); quotas.value = response.data.records; quotaTotal.value = response.data.total }
   finally { loading.value = false }
 }
-async function saveProfile() {
-  if (saving.value || !await profileForm.value.validate().catch(() => false)) return
-  saving.value = true
-  try {
-    const response = await updateStudentProfile({ realName: profile.realName.trim(), phone: profile.phone?.trim() || '', email: profile.email?.trim() || '' })
-    Object.assign(profile, response.data)
-    await userStore.fetchUserInfo()
-    ElMessage.success('个人信息已保存')
-  } finally { saving.value = false }
+async function loadAwards() {
+  loading.value = true
+  try { const response = await request.get('/award/page', { params: { current: awardPage.value, size: 10, status: 'APPROVED' } }); awards.value = response.data.records; awardTotal.value = response.data.total }
+  finally { loading.value = false }
 }
-async function savePassword() {
-  if (changingPassword.value || !await passwordForm.value.validate().catch(() => false)) return
-  changingPassword.value = true
-  try {
-    await changeStudentPassword({ ...password })
-    userStore.clearAuth()
-    Object.assign(password, { currentPassword: '', newPassword: '', confirmPassword: '' })
-    ElMessage.success('密码已修改，请重新登录')
-    await router.replace('/login')
-  } finally { changingPassword.value = false }
+async function loadTab(value) {
+  if (value === 'quota') await loadQuotas()
+  if (value === 'awards') await loadAwards()
 }
-onMounted(load)
 </script>
 
 <style scoped>
-.profile-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; align-items:start; }
-h2 { margin:0 0 20px; font-size:16px; }
-.form-hint { color:var(--color-text-secondary); font-size:13px; line-height:1.7; margin:0 0 20px; }
-@media (max-width:1000px) { .profile-grid { grid-template-columns:1fr; } }
+.personal-center { max-width:1080px; margin:0 auto; }
+.el-pagination { margin-top:20px; }
 </style>

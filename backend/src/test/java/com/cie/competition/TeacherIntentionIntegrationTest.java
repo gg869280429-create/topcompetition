@@ -36,6 +36,7 @@ class TeacherIntentionIntegrationTest extends IsolatedDatabaseTest {
     @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
     @Autowired com.cie.competition.module.competition.service.CompetitionService competitions;
     @Autowired com.cie.competition.module.award.service.AwardService awards;
+    @Autowired com.cie.competition.module.registration.service.TeamRosterService roster;
     private Long competitionId, majorId, admin, teacher, otherTeacher, student, otherStudent;
     private final List<Long> userIds = new ArrayList<>();
     private String prefix;
@@ -92,6 +93,36 @@ class TeacherIntentionIntegrationTest extends IsolatedDatabaseTest {
         assertEquals(1, count("SELECT COUNT(*) FROM guidance WHERE registration_id=? AND teacher_id=?", id, teacher));
         assertEquals(1, count("SELECT COUNT(*) FROM message WHERE receiver_id=?", teacher));
         assertEquals(1, count("SELECT COUNT(*) FROM message WHERE receiver_id=? AND type='AUDIT'", student));
+    }
+
+    @Test
+    void registrationResponsesShowConfirmedTeacherAndKeepCompletedGuidance() throws Exception {
+        Long id = apply(student, teacher);
+        String studentToken = "Bearer " + jwt.generateToken(student, "test", "STUDENT");
+        String adminToken = "Bearer " + jwt.generateToken(admin, "test", "ADMIN");
+        var pending = json.readTree(mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/registration/" + id)
+                .header("Authorization", studentToken)).andReturn().getResponse().getContentAsByteArray()).path("data");
+        assertTrue(pending.has("guidanceTeacherNames"));
+        assertEquals("", pending.path("guidanceTeacherNames").asText());
+        review(id, otherTeacher, "APPROVED", "根据研究方向安排");
+        var confirmed = json.readTree(mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/registration/" + id)
+                .header("Authorization", studentToken)).andReturn().getResponse().getContentAsByteArray()).path("data");
+        assertEquals("other_teacher", confirmed.path("guidanceTeacherNames").asText());
+        Long original = jdbc.queryForObject("SELECT id FROM guidance WHERE registration_id=? AND status='ACTIVE'", Long.class, id);
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/guidance/" + original)
+                .header("Authorization", adminToken).contentType("application/json")
+                .content(json.writeValueAsBytes(Map.of("registrationId", id, "teacherId", teacher, "comment", "调整指导安排"))))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code").value(200));
+        var page = json.readTree(mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/registration/page")
+                .param("competitionId", competitionId.toString()).header("Authorization", adminToken)).andReturn().getResponse().getContentAsByteArray());
+        assertEquals("teacher", page.path("data").path("records").get(0).path("guidanceTeacherNames").asText());
+        Long current = jdbc.queryForObject("SELECT id FROM guidance WHERE registration_id=? AND status='ACTIVE'", Long.class, id);
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/guidance/" + current + "/complete")
+                .header("Authorization", "Bearer " + jwt.generateToken(teacher, "test", "TEACHER")))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code").value(200));
+        var mine = json.readTree(mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/registration/mine")
+                .header("Authorization", studentToken)).andReturn().getResponse().getContentAsByteArray());
+        assertEquals("teacher", mine.path("data").path("records").get(0).path("guidanceTeacherNames").asText());
     }
 
     @Test
@@ -658,15 +689,15 @@ class TeacherIntentionIntegrationTest extends IsolatedDatabaseTest {
     }
 
     @Test
-    void approvedTeamRequiresAdjustmentAndNewMemberConfirmationBeforeReReview() {
+    void approvedTeamAllowsCaptainInvitationsWithoutAnotherAdministratorReview() {
         Long id=apply(student,teacher);review(id,teacher,"APPROVED",null);
         asStudent(student);assertThrows(BusinessException.class,()->registrations.update(id,registrationDto(List.of(otherStudent))));
-        workflow.adjust(id,"补充一名成员");registrations.update(id,registrationDto(List.of(otherStudent)));
-        assertThrows(BusinessException.class,()->workflow.submit(id));
-        accept(id,otherStudent);submit(id);
-        assertEquals("PENDING",state(id));
-        assertEquals(0,count("SELECT COUNT(*) FROM guidance WHERE registration_id=? AND status='ACTIVE'",id));
-        review(id,teacher,"APPROVED",null);
+        workflow.adjust(id,"补充一名成员");
+        var dto=new com.cie.competition.module.registration.dto.TeamMembersDTO();dto.setMemberIds(List.of(otherStudent));dto.setReason("补充成员");roster.update(id,dto);
+        assertEquals(1,count("SELECT COUNT(*) FROM registration_member WHERE registration_id=? AND active_key=1",id));
+        accept(id,otherStudent);
+        assertEquals("APPROVED",state(id));
+        assertEquals(1,count("SELECT COUNT(*) FROM guidance WHERE registration_id=? AND status='ACTIVE'",id));
         assertEquals(2,count("SELECT COUNT(*) FROM registration_member WHERE registration_id=? AND active_key=1",id));
     }
 
@@ -752,11 +783,12 @@ class TeacherIntentionIntegrationTest extends IsolatedDatabaseTest {
     void historicalAwardScopeUsesSavedMajorAndParticipantsAfterTeamAdjustment() throws Exception {
         Long id=draft(otherStudent);accept(id,otherStudent);submit(id);review(id,teacher,"APPROVED",null);Long prize=award(id);
         Long replacement=user("replacement","STUDENT");
-        asStudent(student);workflow.adjust(id,"调整队员");registrations.update(id,registrationDto(List.of(replacement)));
+        asStudent(student);workflow.adjust(id,"调整队员");
+        var members=new com.cie.competition.module.registration.dto.TeamMembersDTO();members.setMemberIds(List.of(replacement));members.setReason("调整队员");roster.update(id,members);
         asStudent(replacement);
         assertEquals(0L,awards.page(new com.cie.competition.module.award.dto.AwardQueryDTO()).getTotal());
         assertThrows(BusinessException.class,()->awards.getById(prize));
-        accept(id,replacement);submit(id);
+        accept(id,replacement);
         asStudent(otherStudent);assertEquals(prize,awards.getById(prize).getId());
         assertEquals(0L,awards.page(new com.cie.competition.module.award.dto.AwardQueryDTO()).getTotal());
         asAdmin();jdbc.update("UPDATE sys_user SET major_id=?,real_name='新名字' WHERE id IN (?,?)",majorId+100000,student,otherStudent);

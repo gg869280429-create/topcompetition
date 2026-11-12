@@ -1,10 +1,10 @@
 package com.cie.competition.module.user.controller;
 
 import com.cie.competition.common.result.Result;
-import com.cie.competition.module.user.dto.StudentPasswordDTO;
-import com.cie.competition.module.user.dto.StudentProfileDTO;
-import com.cie.competition.module.user.service.StudentProfileService;
-import com.cie.competition.module.user.vo.StudentProfileVO;
+import com.cie.competition.module.user.dto.PasswordChangeDTO;
+import com.cie.competition.module.user.dto.ProfileDTO;
+import com.cie.competition.module.user.service.ProfileService;
+import com.cie.competition.module.user.vo.ProfileVO;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -15,18 +15,18 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('STUDENT')")
 public class StudentProfileController {
-    private final StudentProfileService service;
+    private final ProfileService service;
 
     @GetMapping
-    public Result<StudentProfileVO> get() { return Result.success(service.get()); }
+    public Result<ProfileVO> get() { return Result.success(service.get()); }
 
     @PutMapping
-    public Result<StudentProfileVO> update(@Valid @RequestBody StudentProfileDTO dto) {
+    public Result<ProfileVO> update(@Valid @RequestBody ProfileDTO dto) {
         return Result.success(service.update(dto));
     }
 
     @PutMapping("/password")
-    public Result<Void> password(@Valid @RequestBody StudentPasswordDTO dto) {
+    public Result<Void> password(@Valid @RequestBody PasswordChangeDTO dto) {
         service.changePassword(dto);
         return Result.success();
     }

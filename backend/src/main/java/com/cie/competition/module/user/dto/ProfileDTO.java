@@ -4,7 +4,7 @@ import jakarta.validation.constraints.*;
 import lombok.Data;
 
 @Data
-public class StudentProfileDTO {
+public class ProfileDTO {
     @NotBlank(message = "姓名不能为空")
     @Size(max = 64, message = "姓名不能超过64个字符")
     private String realName;

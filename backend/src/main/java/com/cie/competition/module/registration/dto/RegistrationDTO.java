@@ -16,7 +16,7 @@ public class RegistrationDTO {
     @NotNull(message = "竞赛不能为空")
     private Long competitionId;
 
-    @NotNull(message = "请选择一位意向教师")
+    @NotNull(message = "请选择一位指导老师")
     private Long preferredTeacherId;
 
     @NotBlank(message = "团队名称不能为空")

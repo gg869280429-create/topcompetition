@@ -96,7 +96,7 @@ class ApiContractIntegrationTest extends IsolatedDatabaseTest {
                 .header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON);
         if (body != null) request.content(json.writeValueAsBytes(body));
         var response = mvc.perform(request).andReturn().getResponse();
-        var result = json.readTree(response.getContentAsString());
+        var result = json.readTree(response.getContentAsByteArray());
         assertEquals(expected, result.path("code").asInt(), method + " " + path);
         return result.path("data");
     }
@@ -173,6 +173,64 @@ class ApiContractIntegrationTest extends IsolatedDatabaseTest {
         var result = json.readTree(response.getContentAsString());
         assertEquals(200, result.path("code").asInt(), "Upload must persist a file reference");
         return result.path("data").path("id").asLong();
+    }
+
+    @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void competitionPublicationCanPublishOneNewsAndRejectDuplicatePublication() throws Exception {
+        var admin = actor("ADMIN"); var teacher = actor("TEACHER"); var student = actor("STUDENT");
+        long cid = call("POST", "/competition", admin.token(), competitionBody(teacher.id(), null), 200).asLong();
+        var news = Map.of("title", "同步发布新闻", "content", "竞赛详细说明", "category", "NEWS", "officialUrl", "https://example.org/contest");
+        var payload = Map.of("syncNews", true, "news", news);
+        long newsId = call("POST", "/competition/" + cid + "/publish", admin.token(), payload, 200).asLong();
+        assertEquals("REGISTERING", call("GET", "/competition/" + cid, student.token(), null, 200).path("status").asText());
+        var published = call("GET", "/content/" + newsId, student.token(), null, 200);
+        assertEquals("PUBLISHED", published.path("status").asText());
+        assertEquals("竞赛详细说明", published.path("content").asText());
+        assertEquals("https://example.org/contest", published.path("officialUrl").asText());
+        assertEquals(admin.id(), jdbc.queryForObject("SELECT author_id FROM content WHERE id=?", Long.class, newsId));
+        long count = jdbc.queryForObject("SELECT COUNT(*) FROM content", Long.class);
+        call("POST", "/competition/" + cid + "/publish", admin.token(), payload, 400);
+        assertEquals(count, jdbc.queryForObject("SELECT COUNT(*) FROM content", Long.class));
+    }
+
+    @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void competitionPublicationWithoutNewsKeepsContentUnchanged() throws Exception {
+        var admin = actor("ADMIN"); var teacher = actor("TEACHER");
+        long cid = call("POST", "/competition", admin.token(), competitionBody(teacher.id(), null), 200).asLong();
+        long count = jdbc.queryForObject("SELECT COUNT(*) FROM content", Long.class);
+        call("POST", "/competition/" + cid + "/publish", admin.token(), Map.of("syncNews", false), 200);
+        assertEquals("REGISTERING", jdbc.queryForObject("SELECT status FROM competition WHERE id=?", String.class, cid));
+        assertEquals(count, jdbc.queryForObject("SELECT COUNT(*) FROM content", Long.class));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "javascript:alert(1)", "https://", "https://user:password@example.org"})
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void invalidNewsRollsBackCompetitionAndNewsPublication(String url) throws Exception {
+        var admin = actor("ADMIN"); var teacher = actor("TEACHER");
+        long cid = call("POST", "/competition", admin.token(), competitionBody(teacher.id(), null), 200).asLong();
+        long contentCount = jdbc.queryForObject("SELECT COUNT(*) FROM content", Long.class);
+        long historyCount = jdbc.queryForObject("SELECT COUNT(*) FROM business_history", Long.class);
+        var news = Map.of("title", "无效官网", "category", "NEWS", "officialUrl", url);
+        call("POST", "/competition/" + cid + "/publish", admin.token(), Map.of("syncNews", true, "news", news), 400);
+        assertEquals("DRAFT", jdbc.queryForObject("SELECT status FROM competition WHERE id=?", String.class, cid));
+        assertEquals(contentCount, jdbc.queryForObject("SELECT COUNT(*) FROM content", Long.class));
+        assertEquals(historyCount, jdbc.queryForObject("SELECT COUNT(*) FROM business_history", Long.class));
+    }
+
+    @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void competitionPublicationRequiresOwnerAndNewsInformation() throws Exception {
+        var admin = actor("ADMIN"); var teacher = actor("TEACHER"); var student = actor("STUDENT"); var otherAdmin = actor("MAJOR_ADMIN");
+        long cid = call("POST", "/competition", admin.token(), competitionBody(teacher.id(), null), 200).asLong();
+        String path = "/competition/" + cid + "/publish";
+        call("POST", path, student.token(), Map.of("syncNews", false), 403);
+        call("POST", path, teacher.token(), Map.of("syncNews", false), 403);
+        call("POST", path, otherAdmin.token(), Map.of("syncNews", false), 403);
+        call("POST", path, admin.token(), Map.of("syncNews", true), 400);
+        assertEquals("DRAFT", jdbc.queryForObject("SELECT status FROM competition WHERE id=?", String.class, cid));
     }
 
     private void download(String path, String token, byte[] expected) throws Exception {
@@ -297,11 +355,13 @@ class ApiContractIntegrationTest extends IsolatedDatabaseTest {
         call("PUT", rp + "/review", admin.token(), Map.of("result", "APPROVED", "teacherId", teacher.id()), 200);
         call("POST", rp + "/adjustment", captain.token(), Map.of("reason", "Team restructuring"), 200);
         call("POST", rp + "/submit", captain.token(), null, 400);
-        invite = invitation(member.token(), rid);
-        call("PUT", "/registration/invitations/" + invite + "/response", member.token(), Map.of("accepted", true), 200);
-        call("POST", rp + "/submit", captain.token(), null, 200);
-        call("DELETE", rp, captain.token(), null, 200);
-        assertEquals("CANCELLED", call("GET", rp, captain.token(), null, 200).path("status").asText());
+        call("PUT", rp + "/members", captain.token(), Map.of("memberIds", java.util.List.of(), "reason", "Captain adjusts roster"), 200);
+        assertEquals("APPROVED", call("GET", rp, captain.token(), null, 200).path("status").asText());
+        var retainedGuidance=call("GET", "/guidance/list?registrationId="+rid,captain.token(),null,200);
+        assertEquals(1,java.util.stream.StreamSupport.stream(retainedGuidance.spliterator(),false).filter(g -> "ACTIVE".equals(g.path("status").asText())).count());
+        long finalWithdrawal=call("POST",rp+"/withdrawals",captain.token(),Map.of("reason","Leave after roster adjustment"),200).asLong();
+        call("PUT","/registration/withdrawals/"+finalWithdrawal+"/review",admin.token(),Map.of("result","APPROVED"),200);
+        assertEquals("WITHDRAWN", call("GET", rp, captain.token(), null, 200).path("status").asText());
         call("DELETE", "/guidance/quota/" + extraQuota, admin.token(), null, 200);
         assertTrue(call("GET", "/message/mine", member.token(), null, 200).path("total").asLong() > 0);
     }

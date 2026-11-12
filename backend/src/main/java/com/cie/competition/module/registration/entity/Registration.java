@@ -43,6 +43,10 @@ public class Registration {
 
     private String reviewComment;
 
+    private LocalDateTime rosterLockedAt;
+
+    private Long rosterLockedBy;
+
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;

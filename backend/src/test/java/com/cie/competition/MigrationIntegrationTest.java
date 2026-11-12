@@ -32,7 +32,7 @@ class MigrationIntegrationTest extends IsolatedDatabaseTest {
         Map<String, Set<String>> additions = Map.of(
                 "sys_user", Set.of("token_version"),
                 "competition", Set.of("manager_id", "cancellation_reason", "cancelled_at", "major_id"),
-                "registration", Set.of("leader_name_snapshot", "major_name_snapshot"),
+                "registration", Set.of("leader_name_snapshot", "major_name_snapshot", "roster_locked_at", "roster_locked_by"),
                 "registration_member", Set.of("active_key", "current_member", "name_snapshot", "major_id_snapshot", "major_name_snapshot"),
                 "guidance", Set.of("active_key", "ended_time", "end_reason", "members_snapshot"),
                 "content", Set.of("official_url", "carousel_enabled", "sort_order"),
@@ -90,6 +90,10 @@ class MigrationIntegrationTest extends IsolatedDatabaseTest {
                 for (String migration : java.util.List.of("03a_management", "03b_content", "03c_awards", "03d_guidance"))
                     execute(connection, Files.readString(root.resolve("migrations/20261111_" + migration + ".sql")));
                 execute(connection, Files.readString(root.resolve("migrations/20261112_04_student_profile.sql")));
+                execute(connection, Files.readString(root.resolve("migrations/20261112_05_teacher_roster.sql")));
+                try(var result=statement.executeQuery("SELECT roster_locked_at,review_comment,update_time FROM registration WHERE id=1")) {
+                    assertTrue(result.next());assertNotNull(result.getTimestamp(1));assertEquals("原审核意见",result.getString(2));assertEquals("2020-01-02 03:04:05",result.getTimestamp(3).toString().substring(0,19));
+                }
                 try (var result = statement.executeQuery("SELECT password,token_version FROM sys_user WHERE id=1")) {
                     assertTrue(result.next()); assertEquals("test-only",result.getString(1)); assertEquals(0,result.getLong(2));
                 }

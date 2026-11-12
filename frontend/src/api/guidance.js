@@ -1,8 +1,10 @@
 import request from './request'
+export const myQuotaSummary = () => request.get('/guidance/quota/summary')
 
 export const completeGuidance = id => request.post(`/guidance/${id}/complete`)
 export const guidanceResults = id => request.get(`/guidance/${id}/results`)
 export const saveParticipationResult = (id, studentId, data) => request.put(`/guidance/${id}/results/${studentId}`, data)
+export const saveTeamParticipationResult = (id, data) => request.put(`/guidance/${id}/results/team`, data)
 export const teacherQuotaDetails = teacherId => request.get(`/guidance/teacher/${teacherId}/quotas`)
 export const increaseTeacherQuota = (teacherId, competitionId, amount) => request.post(`/guidance/teacher/${teacherId}/quotas/${competitionId}/increase`, { amount })
 

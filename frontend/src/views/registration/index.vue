@@ -10,7 +10,7 @@
 
     <PageContainer v-if="isStudent && invitations.length">
       <h3>我的团队邀请</h3>
-      <p>接受邀请后队长仍需正式提交；确认前不占用参赛资格。</p>
+      <p>首次报名接受邀请后由队长正式提交；已通过报名接受邀请后直接加入。待确认邀请不占用参赛资格。</p>
       <el-table :data="invitations" border>
         <el-table-column prop="registrationId" label="报名编号" />
         <el-table-column prop="competitionTitle" label="竞赛" /><el-table-column prop="teamName" label="团队" /><el-table-column prop="inviterName" label="邀请人" />
@@ -38,7 +38,7 @@
         <el-table-column prop="competitionTitle" label="竞赛名称" min-width="180" show-overflow-tooltip />
         <el-table-column prop="teamName" label="团队名称" min-width="150" show-overflow-tooltip />
         <el-table-column prop="leaderName" label="队长" width="110" show-overflow-tooltip />
-        <el-table-column prop="preferredTeacherName" label="意向教师" min-width="110" />
+        <el-table-column label="指导老师" min-width="130"><template #default="{ row }">{{ row.guidanceTeacherNames || '待分配' }}</template></el-table-column>
         <el-table-column label="成员数" width="80">
           <template #default="{ row }">{{ row.members?.length || 0 }}</template>
         </el-table-column>
@@ -57,7 +57,7 @@
             </template>
             <template v-if="isStudent && row.leaderId === currentUserId">
               <el-button v-if="['DRAFT', 'REJECTED'].includes(row.status)" link type="success" @click="submitDraft(row)">正式提交</el-button>
-              <el-button v-if="row.status === 'APPROVED'" link type="primary" @click="reasonAction(row, 'adjust')">申请调整</el-button>
+              <el-button v-if="row.canAdjustMembers" link type="primary" @click="openRoster(row)">调整队员</el-button>
               <el-button v-if="row.status === 'APPROVED'" link type="danger" @click="reasonAction(row, 'withdraw')">申请退赛</el-button>
               <el-button v-if="['CANCELLED', 'WITHDRAWN'].includes(row.status)" link type="primary" @click="reasonAction(row, 'reapply')">重新申请</el-button>
             </template>
@@ -65,6 +65,7 @@
               <el-button link type="success" @click="openReview(row, 'APPROVED')">通过</el-button>
               <el-button link type="danger" @click="openReview(row, 'REJECTED')">驳回</el-button>
             </template>
+            <el-button v-if="isAdmin && row.status === 'APPROVED'" link type="primary" @click="openTeacherAssignment(row)">选择指导老师</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -83,6 +84,18 @@
     </PageContainer>
 
     <!-- 报名 / 编辑弹窗 -->
+    <el-dialog v-model="rosterVisible" title="调整队员" width="min(560px,95vw)" :close-on-click-modal="false" :close-on-press-escape="!rosterSaving" :show-close="!rosterSaving">
+      <el-alert title="新增队员须本人接受邀请后加入，无需管理员重新审核；指导老师确认参赛后名单锁定。" type="info" :closable="false" />
+      <el-form label-width="90px" style="margin-top:20px" @submit.prevent>
+        <el-form-item label="团队">{{ rosterRow.teamName }}</el-form-item>
+        <el-form-item label="队员">
+          <el-select v-model="rosterMemberIds" multiple filterable remote :remote-method="searchRosterStudents" :loading="rosterSearching" :disabled="rosterSaving" placeholder="搜索并邀请学生，不含队长" style="width:100%"><el-option v-for="s in rosterStudents" :key="s.id" :value="s.id" :label="s.realName || s.username" :disabled="s.id === currentUserId" /></el-select>
+        </el-form-item>
+        <el-form-item label="调整说明"><el-input v-model="rosterReason" type="textarea" :rows="3" maxlength="1000" :disabled="rosterSaving" /></el-form-item>
+      </el-form>
+      <template #footer><el-button :disabled="rosterSaving" @click="rosterVisible=false">取消</el-button><el-button type="primary" :loading="rosterSaving" @click="saveRoster">保存并发送邀请</el-button></template>
+    </el-dialog>
+
     <el-dialog
       v-model="applyVisible"
       :title="applyForm.id ? '编辑报名' : '报名竞赛'"
@@ -103,11 +116,11 @@
           </el-select>
           <el-input v-else :model-value="currentCompetition?.title || ''" disabled />
         </el-form-item>
-        <el-form-item label="意向教师" prop="preferredTeacherId">
-          <el-select v-model="applyForm.preferredTeacherId" placeholder="请选择一位意向教师" :loading="teachersLoading" :disabled="teachersLoading || !applyForm.competitionId" style="width:100%">
+        <el-form-item label="指导老师" prop="preferredTeacherId">
+          <el-select v-model="applyForm.preferredTeacherId" placeholder="请选择一位指导老师" :loading="teachersLoading" :disabled="teachersLoading || !applyForm.competitionId" style="width:100%">
             <el-option v-for="t in teacherOptions" :key="t.teacherId" :value="t.teacherId" :label="`${t.teacherName}（${t.majorName || '专业未设置'}，剩余${t.remaining}个名额）`" />
           </el-select>
-          <div class="tip-text">意向不占用名额，最终指导教师由管理员确认。</div>
+          <div class="tip-text">指导老师由管理员审核确认，确认前不占用指导名额。</div>
           <div v-if="selectedTeacher" class="tip-text">擅长方向：{{ selectedTeacher.expertise || '暂未填写' }}<br />{{ selectedTeacher.biography }}</div>
         </el-form-item>
         <el-form-item label="团队名称" prop="teamName">
@@ -154,8 +167,7 @@
         <el-descriptions-item label="团队名称" :span="2">{{ detail.teamName }}</el-descriptions-item>
         <el-descriptions-item label="队长">{{ detail.leaderName }}</el-descriptions-item>
         <el-descriptions-item label="状态">{{ REGISTRATION_STATUS[detail.status] || detail.status }}</el-descriptions-item>
-        <el-descriptions-item label="意向教师">{{ detail.preferredTeacherName || '历史报名未选择' }}</el-descriptions-item>
-        <el-descriptions-item label="最终指导">{{ finalTeachers || '待分配' }}</el-descriptions-item>
+        <el-descriptions-item label="指导老师">{{ detail.guidanceTeacherNames || '待分配' }}</el-descriptions-item>
         <el-descriptions-item label="报名时间" :span="2">{{ detail.applyTime }}</el-descriptions-item>
         <el-descriptions-item v-if="detail.reviewTime" label="审核时间" :span="2">{{ detail.reviewTime }}</el-descriptions-item>
         <el-descriptions-item v-if="detail.reviewComment" label="审核意见" :span="2">{{ detail.reviewComment }}</el-descriptions-item>
@@ -170,7 +182,7 @@
       <el-table :data="workflow.invitations || []" border>
         <el-table-column prop="inviteeId" label="成员编号" /><el-table-column prop="status" label="状态" />
         <el-table-column label="操作"><template #default="{ row }">
-          <el-button v-if="isStudent && detail.leaderId === currentUserId && detail.status === 'DRAFT' && ['PENDING','ACCEPTED','REJECTED'].includes(row.status)" link type="danger" @click="revoke(row)">撤销</el-button>
+          <el-button v-if="isStudent && detail.leaderId === currentUserId && ((detail.status === 'DRAFT' && ['PENDING','ACCEPTED','REJECTED'].includes(row.status)) || (detail.canAdjustMembers && ['PENDING','REJECTED'].includes(row.status)))" link type="danger" @click="revoke(row)">撤销</el-button>
         </template></el-table-column>
       </el-table>
       <h3>退赛申请</h3>
@@ -189,6 +201,27 @@
       </el-table>
     </el-dialog>
 
+    <el-dialog v-model="assignmentVisible" title="选择指导老师" width="540px" :close-on-click-modal="false" :close-on-press-escape="!assignmentSaving" :show-close="!assignmentSaving" @closed="assignmentVersion++">
+      <el-form v-loading="assignmentLoading" label-width="100px" @submit.prevent>
+        <el-form-item label="报名团队">{{ assignmentRow.teamName }}</el-form-item>
+        <el-form-item label="当前指导老师">{{ assignmentCurrent.map(t => t.teacherName).join('、') || '待分配' }}</el-form-item>
+        <el-form-item v-if="assignmentCurrent.length > 1" label="调整对象" required>
+          <el-select v-model="assignmentForm.guidanceId" :disabled="assignmentSaving" style="width:100%"><el-option v-for="g in assignmentCurrent" :key="g.id" :value="g.id" :label="g.teacherName" /></el-select>
+        </el-form-item>
+        <el-form-item label="指导老师" required>
+          <el-select v-model="assignmentForm.teacherId" placeholder="请选择指导老师" :disabled="assignmentSaving || !assignmentReady" style="width:100%">
+            <el-option v-for="t in assignmentTeachers" :key="t.teacherId" :value="t.teacherId" :disabled="t.remaining <= 0 || assignmentCurrent.some(g => g.teacherId === t.teacherId)" :label="`${t.teacherName}（剩余${t.remaining}个名额）`" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="分配说明" :required="assignmentReasonRequired"><el-input v-model="assignmentForm.comment" type="textarea" :rows="3" maxlength="255" show-word-limit placeholder="调整指导老师时，请填写原因" :disabled="assignmentSaving" /></el-form-item>
+        <el-alert v-if="assignmentClosed" title="竞赛已结束或已取消，不能分配或调整指导老师。" type="warning" :closable="false" />
+      </el-form>
+      <template #footer>
+        <el-button :disabled="assignmentSaving" @click="assignmentVisible = false">取消</el-button>
+        <el-button type="primary" :loading="assignmentSaving" :disabled="assignmentLoading || !assignmentReady" @click="saveTeacherAssignment">确认分配</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 审核弹窗 -->
     <el-dialog
       v-model="reviewVisible"
@@ -197,9 +230,8 @@
       :close-on-click-modal="false"
     >
       <el-form label-width="90px">
-        <el-form-item v-if="reviewAction === 'APPROVED'" label="意向教师">{{ reviewPreferredName || '历史报名未选择' }}</el-form-item>
-        <el-form-item v-if="reviewAction === 'APPROVED'" label="最终教师">
-          <el-select v-model="reviewTeacherId" :loading="reviewTeachersLoading" style="width:100%" placeholder="确认指导教师">
+        <el-form-item v-if="reviewAction === 'APPROVED'" label="指导老师">
+          <el-select v-model="reviewTeacherId" :loading="reviewTeachersLoading" style="width:100%" placeholder="确认指导老师">
             <el-option v-for="t in reviewTeachers" :key="t.teacherId" :value="t.teacherId" :disabled="t.remaining <= 0" :label="`${t.teacherName}（剩余${t.remaining}个名额）`" />
           </el-select>
           <div v-if="reviewTeacherId && reviewPreferredId && reviewTeacherId !== reviewPreferredId" class="tip-text">已调剂教师，请在审核意见中填写原因。</div>
@@ -236,10 +268,10 @@ import {
   updateRegistration,
   cancelRegistration,
   reviewRegistration, getRegistration, submitRegistration, myInvitations, respondInvitation,
-  revokeInvitation, registrationHistory, adjustRegistration, reapplyRegistration, requestWithdrawal, reviewWithdrawal
+  revokeInvitation, registrationHistory, reapplyRegistration, requestWithdrawal, reviewWithdrawal, updateTeamMembers
 } from '@/api/registration'
 import { listStudents } from '@/api/user'
-import { competitionTeachers, listGuidance } from '@/api/guidance'
+import { competitionTeachers, listGuidance, assignGuidance, replaceGuidance } from '@/api/guidance'
 import { COMPETITION_TYPE, REGISTRATION_STATUS } from '@/constants/dict'
 
 const userStore = useUserStore()
@@ -248,6 +280,39 @@ const isTeacher = computed(() => userStore.role === 'TEACHER')
 const isStudent = computed(() => userStore.role === 'STUDENT')
 const isAdmin = computed(() => userStore.role === 'ADMIN' || userStore.role === 'MAJOR_ADMIN')
 const currentUserId = computed(() => userStore.userInfo?.id)
+const rosterVisible = ref(false), rosterSaving = ref(false), rosterSearching = ref(false), rosterRow = ref({})
+const rosterMemberIds = ref([]), rosterStudents = ref([]), rosterReason = ref('')
+async function openRoster(row) {
+  try {
+    const [registration, competition, record] = await Promise.all([getRegistration(row.id), getCompetition(row.competitionId), registrationHistory(row.id)])
+    if (!registration.data.canAdjustMembers || ['ENDED','CANCELLED'].includes(competition.data.status)) { ElMessage.warning('当前团队名单不能调整'); return }
+    if (competition.data.competitionType !== 'TEAM') { ElMessage.warning('个人赛不能调整队员'); return }
+    rosterRow.value = registration.data
+    const members = (registration.data.members || []).filter(m => m.userId !== currentUserId.value)
+    const pending = (record.data.invitations || []).filter(i => i.status === 'PENDING')
+    rosterMemberIds.value = [...new Set([...members.map(m => m.userId), ...pending.map(i => i.inviteeId)])]
+    rosterStudents.value = [...members.map(m => ({ id: m.userId, realName: m.name })), ...pending.map(i => ({ id: i.inviteeId, realName: `待确认学生 ${i.inviteeId}` }))]
+    rosterReason.value = ''
+    rosterVisible.value = true
+  } catch { return }
+}
+async function searchRosterStudents(keyword) {
+  rosterSearching.value = true
+  try { const response = await listStudents(keyword); rosterStudents.value = [...new Map([...rosterStudents.value, ...response.data].map(s => [s.id, s])).values()] }
+  finally { rosterSearching.value = false }
+}
+async function saveRoster() {
+  if (rosterSaving.value) return
+  rosterSaving.value = true
+  try {
+    await updateTeamMembers(rosterRow.value.id, { memberIds: rosterMemberIds.value, reason: rosterReason.value })
+    rosterVisible.value = false
+    ElMessage.success('名单已保存，新增队员接受邀请后加入')
+    await fetchList()
+    if (detailVisible.value && detail.value.id === rosterRow.value.id) await openDetail(detail.value)
+  } catch { return }
+  finally { rosterSaving.value = false }
+}
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -265,12 +330,62 @@ const applyForm = reactive({ id: null, competitionId: null, preferredTeacherId: 
 const teacherOptions = ref([])
 const teachersLoading = ref(false)
 const selectedTeacher = computed(() => teacherOptions.value.find(t => t.teacherId === applyForm.preferredTeacherId))
-const finalTeachers = ref('')
 const reviewTeachers = ref([])
 const reviewTeachersLoading = ref(false)
 const reviewTeacherId = ref(null)
 const reviewPreferredId = ref(null)
-const reviewPreferredName = ref('')
+const assignmentVisible = ref(false)
+const assignmentLoading = ref(false)
+const assignmentSaving = ref(false)
+const assignmentReady = ref(false)
+const assignmentClosed = ref(false)
+const assignmentRow = ref({})
+const assignmentCurrent = ref([])
+const assignmentTeachers = ref([])
+const assignmentForm = reactive({ guidanceId: null, teacherId: null, comment: '' })
+const assignmentReasonRequired = computed(() => !!assignmentForm.guidanceId || !!(assignmentRow.value.preferredTeacherId && assignmentForm.teacherId && assignmentRow.value.preferredTeacherId !== assignmentForm.teacherId))
+let assignmentVersion = 0
+
+async function openTeacherAssignment(row) {
+  const version = ++assignmentVersion
+  assignmentRow.value = row
+  assignmentCurrent.value = []
+  assignmentTeachers.value = []
+  Object.assign(assignmentForm, { guidanceId: null, teacherId: null, comment: '' })
+  assignmentReady.value = false
+  assignmentClosed.value = false
+  assignmentLoading.value = true
+  assignmentVisible.value = true
+  try {
+    const [registration, competition, current, teachers] = await Promise.all([getRegistration(row.id), getCompetition(row.competitionId), listGuidance(row.id), competitionTeachers(row.competitionId)])
+    if (version !== assignmentVersion || !assignmentVisible.value) return
+    assignmentRow.value = registration.data
+    assignmentClosed.value = ['ENDED', 'CANCELLED'].includes(competition.data.status)
+    assignmentReady.value = !assignmentClosed.value && registration.data.status === 'APPROVED'
+    assignmentCurrent.value = current.data.filter(g => g.status === 'ACTIVE')
+    assignmentTeachers.value = teachers.data
+    assignmentForm.guidanceId = assignmentCurrent.value[0]?.id || null
+    if (!assignmentForm.guidanceId && teachers.data.some(t => t.teacherId === registration.data.preferredTeacherId && t.remaining > 0)) assignmentForm.teacherId = registration.data.preferredTeacherId
+  } catch { return }
+  finally { if (version === assignmentVersion) assignmentLoading.value = false }
+}
+
+async function saveTeacherAssignment() {
+  if (assignmentSaving.value || !assignmentReady.value) return
+  if (!assignmentForm.teacherId) { ElMessage.warning('请选择指导老师'); return }
+  if (assignmentReasonRequired.value && !assignmentForm.comment.trim()) { ElMessage.warning('请填写调剂原因'); return }
+  assignmentSaving.value = true
+  try {
+    const payload = { registrationId: assignmentRow.value.id, teacherId: assignmentForm.teacherId, comment: assignmentForm.comment.trim() }
+    if (assignmentForm.guidanceId) await replaceGuidance(assignmentForm.guidanceId, payload)
+    else await assignGuidance(payload)
+    ElMessage.success('指导老师已确认')
+    assignmentVisible.value = false
+    if (detailVisible.value && detail.value.id === payload.registrationId) await openDetail(detail.value)
+    await fetchList()
+  } catch { return }
+  finally { assignmentSaving.value = false }
+}
 
 const invitations = ref([])
 const workflow = ref({})
@@ -283,7 +398,7 @@ const reviewAction = ref('APPROVED')
 const reviewComment = ref('')
 
 const applyRules = {
-  preferredTeacherId: [{ required: true, message: '请选择一位意向教师', trigger: 'change' }],
+  preferredTeacherId: [{ required: true, message: '请选择一位指导老师', trigger: 'change' }],
   competitionId: [{ required: true, message: '请选择竞赛', trigger: 'change' }],
   teamName: [{ required: true, message: '请输入团队名称', trigger: 'blur' }]
 }
@@ -405,10 +520,7 @@ async function openDetail(row) {
   const res = await getRegistration(row.id)
   detail.value = res.data
   workflow.value = (await registrationHistory(row.id)).data
-  finalTeachers.value = ''
   detailVisible.value = true
-  const guidance = await listGuidance(row.id)
-  if (detail.value.id === row.id) finalTeachers.value = guidance.data.filter(t => t.status === 'ACTIVE').map(t => t.teacherName).join('、')
 }
 async function respond(row, accept) {
   await respondInvitation(row.id, accept)
@@ -424,10 +536,10 @@ async function submitDraft(row) {
   ElMessage.success('已正式提交审核'); await fetchList()
 }
 async function reasonAction(row, action) {
-  const titles = { adjust: '申请调整将结束当前指导，释放名额，并重新确认成员及审核', withdraw: '申请退赛，由管理员审核', reapply: '重新申请仅限报名期，队友需重新确认' }
+  const titles = { withdraw: '申请退赛，由管理员审核', reapply: '重新申请仅限报名期，队友需重新确认' }
   try {
     const { value } = await ElMessageBox.prompt(titles[action], '请填写原因', { inputType: 'textarea', inputValidator: v => !!v?.trim() || '请填写原因' })
-    const api = { adjust: adjustRegistration, withdraw: requestWithdrawal, reapply: reapplyRegistration }[action]
+    const api = { withdraw: requestWithdrawal, reapply: reapplyRegistration }[action]
     await api(row.id, value)
     ElMessage.success('操作成功'); await fetchList()
   } catch (error) { if (error !== 'cancel' && error !== 'close') throw error }
@@ -495,7 +607,6 @@ async function openReview(row, action) {
   reviewComment.value = ''
   reviewTeacherId.value = null
   reviewPreferredId.value = row.preferredTeacherId
-  reviewPreferredName.value = row.preferredTeacherName
   reviewTeachers.value = []
   reviewVisible.value = true
   if (action === 'APPROVED') {
@@ -510,7 +621,7 @@ async function openReview(row, action) {
 }
 
 async function handleReviewSubmit() {
-  if (reviewAction.value === 'APPROVED' && !reviewTeacherId.value) { ElMessage.warning('请确认最终指导教师'); return }
+  if (reviewAction.value === 'APPROVED' && !reviewTeacherId.value) { ElMessage.warning('请确认指导老师'); return }
   if (reviewAction.value === 'APPROVED' && reviewPreferredId.value && reviewTeacherId.value !== reviewPreferredId.value && !reviewComment.value.trim()) {
     ElMessage.warning('调剂教师时请填写原因'); return
   }

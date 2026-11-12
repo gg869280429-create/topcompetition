@@ -1,6 +1,6 @@
-# 后端接口清单（2026-11-11 功能扩展后）
+# 后端接口清单（2026-11-12）
 
-共 89 个方法与路径组合。登录由真实登录场景验证；其余 88 个接口按四角色及未登录完成 440 次参数/权限检查。完整业务流程及验证边界见 [功能验收报告](feature-acceptance-20261111.md)。
+共 99 个方法与路径组合。登录由真实登录场景验证；其余 98 个接口按四角色及未登录完成 490 次参数/权限检查，无服务端错误。完整业务流程及验证边界见[功能验收报告](feature-acceptance-20261111.md)、[个人信息与轮播验收](student-profile-20261112.md)、[管理员功能补充验收](admin-enhancements-20261112.md)及[教师端与团队名单验收](teacher-center-20261112.md)。
 
 | 方法 | 路径 |
 | --- | --- |
@@ -27,6 +27,7 @@
 | PUT | `/api/competition/{id}` |
 | GET | `/api/competition/{id}/document` |
 | PUT | `/api/competition/{id}/major` |
+| POST | `/api/competition/{id}/publish` |
 | PUT | `/api/competition/{id}/status` |
 | POST | `/api/content` |
 | GET | `/api/content/carousel` |
@@ -46,6 +47,7 @@
 | POST | `/api/guidance/quota` |
 | GET | `/api/guidance/quota/mine` |
 | GET | `/api/guidance/quota/page` |
+| GET | `/api/guidance/quota/summary` |
 | DELETE | `/api/guidance/quota/{id}` |
 | GET | `/api/guidance/teacher/{teacherId}/quotas` |
 | POST | `/api/guidance/teacher/{teacherId}/quotas/{competitionId}/increase` |
@@ -53,6 +55,7 @@
 | PUT | `/api/guidance/{id}` |
 | POST | `/api/guidance/{id}/complete` |
 | GET | `/api/guidance/{id}/results` |
+| PUT | `/api/guidance/{id}/results/team` |
 | PUT | `/api/guidance/{id}/results/{studentId}` |
 | GET | `/api/major` |
 | POST | `/api/major` |
@@ -65,6 +68,9 @@
 | DELETE | `/api/message/{id}` |
 | GET | `/api/message/{id}` |
 | PUT | `/api/message/{id}/read` |
+| GET | `/api/profile` |
+| PUT | `/api/profile` |
+| PUT | `/api/profile/password` |
 | POST | `/api/registration` |
 | GET | `/api/registration/invitations` |
 | DELETE | `/api/registration/invitations/{id}` |
@@ -77,6 +83,7 @@
 | PUT | `/api/registration/{id}` |
 | POST | `/api/registration/{id}/adjustment` |
 | GET | `/api/registration/{id}/history` |
+| PUT | `/api/registration/{id}/members` |
 | POST | `/api/registration/{id}/reapply` |
 | PUT | `/api/registration/{id}/review` |
 | POST | `/api/registration/{id}/submit` |
@@ -84,6 +91,9 @@
 | GET | `/api/statistics/overview` |
 | POST | `/api/student` |
 | GET | `/api/student/page` |
+| GET | `/api/student/profile` |
+| PUT | `/api/student/profile` |
+| PUT | `/api/student/profile/password` |
 | DELETE | `/api/student/{id}` |
 | PUT | `/api/student/{id}` |
 | POST | `/api/teacher` |

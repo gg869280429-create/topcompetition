@@ -68,7 +68,7 @@
           <template #default="{ row }">
             <template v-if="canManage(row)">
               <el-button link type="primary" :disabled="['ENDED','CANCELLED'].includes(row.status)" @click="openEdit(row)">编辑</el-button>
-              <el-button v-if="row.status === 'DRAFT'" link type="success" @click="changeStatus(row, 'REGISTERING')">发布</el-button>
+              <el-button v-if="row.status === 'DRAFT'" link type="success" @click="openPublish(row)">发布</el-button>
               <el-button
                 v-else-if="row.status === 'REGISTERING'"
                 link
@@ -187,7 +187,7 @@
             style="width: 100%"
           />
         </el-form-item>
-        <el-form-item label="指导教师">
+        <el-form-item label="指导老师">
           <CompetitionTeacherConfig v-if="dialogVisible" v-model="form.teachers" />
         </el-form-item>
         <el-form-item label="竞赛文件">
@@ -204,6 +204,23 @@
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="submitting" :disabled="uploadingDocument || loadingTeachers" @click="handleSubmit">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="publishVisible" title="发布竞赛" width="600px" :close-on-click-modal="false" :close-on-press-escape="!publishing" :show-close="!publishing">
+      <el-form label-width="110px" @submit.prevent>
+        <el-form-item label="竞赛名称">{{ publishForm.competitionTitle }}</el-form-item>
+        <el-form-item label="同步发布新闻"><el-switch v-model="publishForm.syncNews" :disabled="publishing" /></el-form-item>
+        <template v-if="publishForm.syncNews">
+          <el-form-item label="新闻标题" required><el-input v-model="publishForm.title" maxlength="128" show-word-limit :disabled="publishing" /></el-form-item>
+          <el-form-item label="比赛官网" required><el-input v-model="publishForm.officialUrl" placeholder="https://对应大赛官网" maxlength="2048" :disabled="publishing" /></el-form-item>
+          <el-form-item label="新闻正文"><el-input v-model="publishForm.content" type="textarea" :rows="6" :disabled="publishing" /></el-form-item>
+          <el-alert title="发布后可在新闻管理中维护封面和首页轮播。" type="info" :closable="false" />
+        </template>
+      </el-form>
+      <template #footer>
+        <el-button :disabled="publishing" @click="publishVisible = false">取消</el-button>
+        <el-button type="primary" :loading="publishing" @click="handlePublish">确认发布</el-button>
       </template>
     </el-dialog>
 
@@ -253,7 +270,8 @@ import {
   createCompetition,
   updateCompetition,
   deleteCompetition,
-  updateCompetitionStatus
+  updateCompetitionStatus,
+  publishCompetition
 } from '@/api/competition'
 import { updateCompetitionMajor } from '@/api/competition'
 import { COMPETITION_TYPE, COMPETITION_LEVEL, COMPETITION_STATUS } from '@/constants/dict'
@@ -270,6 +288,36 @@ const loading = ref(false)
 const submitting = ref(false)
 const uploadingDocument = ref(false)
 const loadingTeachers = ref(false)
+const publishVisible = ref(false)
+const publishing = ref(false)
+const publishForm = reactive({ id: null, competitionTitle: '', syncNews: false, title: '', content: '', officialUrl: '' })
+
+function openPublish(row) {
+  Object.assign(publishForm, { id: row.id, competitionTitle: row.title, syncNews: false, title: row.title, content: row.description || '', officialUrl: '' })
+  publishVisible.value = true
+}
+
+async function handlePublish() {
+  if (publishing.value) return
+  if (publishForm.syncNews) {
+    if (!publishForm.title.trim()) { ElMessage.warning('请输入新闻标题'); return }
+    try {
+      const url = new URL(publishForm.officialUrl.trim())
+      if (!['http:', 'https:'].includes(url.protocol) || !url.hostname || url.username || url.password) throw new Error()
+    } catch { ElMessage.warning('请填写有效的 HTTP/HTTPS 比赛官网地址'); return }
+  }
+  publishing.value = true
+  try {
+    await publishCompetition(publishForm.id, {
+      syncNews: publishForm.syncNews,
+      ...(publishForm.syncNews ? { news: { title: publishForm.title.trim(), content: publishForm.content, officialUrl: publishForm.officialUrl.trim(), category: 'NEWS' } } : {})
+    })
+    ElMessage.success(publishForm.syncNews ? '竞赛和新闻已发布' : '竞赛已发布')
+    publishVisible.value = false
+    await fetchList()
+  } catch { return }
+  finally { publishing.value = false }
+}
 const list = ref([])
 const majors = ref([])
 const classificationVisible=ref(false), classification=reactive({id:null,majorId:null})
@@ -418,7 +466,7 @@ function handleSubmit() {
   formRef.value.validate(async (valid) => {
     if (!valid) return
     if (!form.teachers.length || form.teachers.some(t => !t.teacherId || !t.quota)) {
-      ElMessage.warning('请至少配置一位指导教师并设置名额'); return
+      ElMessage.warning('请至少配置一位指导老师并设置名额'); return
     }
     if (!registrationRange.value || registrationRange.value.length !== 2 || registrationRange.value[0] >= registrationRange.value[1]) {
       ElMessage.warning('报名起止时间必填且开始时间必须早于截止时间'); return

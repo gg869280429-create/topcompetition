@@ -25,3 +25,7 @@ export function deleteCompetition(id) {
 export function updateCompetitionStatus(id, status, reason) {
   return request.put(`/competition/${id}/status`, null, { params: { status, reason } })
 }
+
+export function publishCompetition(id, data) {
+  return request.post(`/competition/${id}/publish`, data)
+}

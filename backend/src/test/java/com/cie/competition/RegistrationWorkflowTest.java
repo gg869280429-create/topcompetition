@@ -24,6 +24,7 @@ class RegistrationWorkflowTest {
  @Mock com.cie.competition.module.message.service.MessageService messages;
  @Mock org.springframework.jdbc.core.JdbcTemplate jdbc;
  @InjectMocks RegistrationWorkflowService workflow;
+ @BeforeEach void wireMemberValidation(){org.springframework.test.util.ReflectionTestUtils.setField(workflow,"memberValidator",new com.cie.competition.module.registration.service.RegistrationMemberValidator(competitions,users));}
  @AfterEach void clear(){UserContext.clear();}
  @Test void strangerCannotSubmitDraft(){
   UserContext.set(new LoginUser(2L,"s","STUDENT"));

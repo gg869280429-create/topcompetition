@@ -14,7 +14,7 @@
         active-text-color="#fff"
         router
       >
-        <el-menu-item v-for="m in visibleMenus" :key="m.path" :index="m.path">
+        <el-menu-item v-for="m in visibleMenus" :key="m.path" :index="m.path" :class="{ 'studio-menu-item': m.path === '/studio' }">
           <el-icon><component :is="m.icon" /></el-icon>
           <template #title>{{ m.title }}</template>
         </el-menu-item>
@@ -33,14 +33,17 @@
           <el-badge :value="unread" :hidden="unread === 0" :max="99" class="msg-badge">
             <el-icon class="msg-btn" @click="messageVisible = true"><Message /></el-icon>
           </el-badge>
-          <el-dropdown @command="handleCommand">
-            <span class="user-info">
+          <el-dropdown trigger="click" @command="handleCommand">
+            <span class="user-info" role="button" tabindex="0" aria-label="打开个人菜单">
               <el-avatar :size="30">{{ avatarText }}</el-avatar>
               <span class="user-name">{{ userStore.userInfo?.realName || userStore.userInfo?.username }}</span>
               <el-icon><ArrowDown /></el-icon>
             </span>
             <template #dropdown>
               <el-dropdown-menu>
+                <el-dropdown-item v-if="['STUDENT','TEACHER'].includes(userStore.role)" command="profile">
+                  <el-icon><User /></el-icon>个人中心
+                </el-dropdown-item>
                 <el-dropdown-item command="logout">
                   <el-icon><SwitchButton /></el-icon>退出登录
                 </el-dropdown-item>
@@ -87,15 +90,24 @@ const menuConfig = [
   { path: '/registration', title: '报名管理', icon: 'Tickets', roles: ['ADMIN', 'MAJOR_ADMIN', 'STUDENT'] },
   { path: '/guidance', title: '指导管理', icon: 'UserFilled', roles: ['ADMIN', 'MAJOR_ADMIN', 'TEACHER'] },
   { path: '/award', title: '获奖记录', icon: 'Medal', roles: ['ADMIN', 'MAJOR_ADMIN', 'TEACHER', 'STUDENT'] },
-  { path: '/profile', title: '个人信息管理', icon: 'User', roles: ['STUDENT'] },
+  { path: '/profile', title: '个人中心', icon: 'User', roles: ['STUDENT', 'TEACHER'] },
   { path: '/content', title: '新闻资讯', icon: 'Document', roles: ['ADMIN', 'MAJOR_ADMIN', 'TEACHER', 'STUDENT'] },
   { path: '/major', title: '专业管理', icon: 'School', roles: ['ADMIN'] },
   { path: '/student', title: '学生管理', icon: 'User', roles: ['ADMIN', 'MAJOR_ADMIN'] },
   { path: '/teacher', title: '教师库', icon: 'UserFilled', roles: ['ADMIN', 'MAJOR_ADMIN'] },
-  { path: '/statistics', title: '统计中心', icon: 'Histogram', roles: ['ADMIN', 'MAJOR_ADMIN'] }
+  { path: '/statistics', title: '统计中心', icon: 'Histogram', roles: ['ADMIN', 'MAJOR_ADMIN'] },
+  { path: '/studio', title: '大师工作室', icon: 'OfficeBuilding', roles: ['ADMIN', 'MAJOR_ADMIN'] }
 ]
-const visibleMenus = computed(() => menuConfig.filter((m) => m.roles.includes(userStore.role)).map(m =>
-  m.path === '/content' ? { ...m, title: ['ADMIN','MAJOR_ADMIN'].includes(userStore.role) ? '新闻管理' : '竞赛预览' } : m))
+const visibleMenus = computed(() => {
+  const menus = menuConfig.filter(m => m.roles.includes(userStore.role)).map(m =>
+    m.path === '/content' ? { ...m, title: ['ADMIN', 'MAJOR_ADMIN'].includes(userStore.role) ? '新闻管理' : '竞赛预览' } : m)
+  if (userStore.role === 'TEACHER') return ['/dashboard', '/guidance', '/award', '/content', '/profile'].map(path => menus.find(m => m.path === path))
+  if (userStore.role !== 'STUDENT') return menus
+  return ['/dashboard', '/content', '/registration', '/award', '/profile'].map(path => {
+    const menu = menus.find(m => m.path === path)
+    return { ...menu, title: path === '/award' ? '获奖管理' : path === '/profile' ? '个人信息' : menu.title }
+  })
+})
 
 const unread = ref(0)
 const messageVisible = ref(false)
@@ -106,6 +118,10 @@ async function fetchUnread() {
 }
 
 async function handleCommand(command) {
+  if (command === 'profile') {
+    router.push('/profile')
+    return
+  }
   if (command === 'logout') {
     await ElMessageBox.confirm('确定退出登录吗？', '提示', { type: 'warning' })
     userStore.clearAuth()
@@ -122,6 +138,8 @@ onMounted(fetchUnread)
 }
 
 .layout-aside {
+  display: flex;
+  flex-direction: column;
   background-color: #001529;
   overflow: hidden;
   transition: width 0.2s;
@@ -129,6 +147,7 @@ onMounted(fetchUnread)
 
 .logo {
   height: var(--header-height);
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -145,6 +164,24 @@ onMounted(fetchUnread)
 
 .layout-aside :deep(.el-menu) {
   border-right: none;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.layout-aside :deep(.el-menu-item) {
+  flex-shrink: 0;
+}
+
+.layout-aside :deep(.studio-menu-item) {
+  margin-top: auto;
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  background: #001529;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .layout-body {
