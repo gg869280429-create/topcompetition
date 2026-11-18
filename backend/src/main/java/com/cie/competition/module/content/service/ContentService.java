@@ -19,5 +19,7 @@ public interface ContentService {
 
     void delete(Long id);
 
+    void updateCarousel(Long id, com.cie.competition.module.content.dto.CarouselDTO dto);
+
     void updateStatus(Long id, String status);
 }

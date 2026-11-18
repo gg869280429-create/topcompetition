@@ -46,11 +46,15 @@ public class StudentService {
     }
 
     public PageResult<StudentVO> page(String keyword, Long majorId, Integer status, long current, long size) {
+        return page(keyword,majorId,status,current,size,null);
+    }
+    public PageResult<StudentVO> page(String keyword, Long majorId, Integer status, long current, long size,String className) {
         Long major = scope();
         var query = new LambdaQueryWrapper<User>().eq(User::getRole, "STUDENT");
         if (major != null) query.eq(User::getMajorId, major);
         else if (majorId != null) query.eq(User::getMajorId, majorId);
         if (status != null) query.eq(User::getStatus, status);
+        if(className!=null && !className.isBlank())query.eq(User::getClassName,className.trim());
         if (keyword != null && !keyword.isBlank())
             query.and(w -> w.like(User::getUsername, keyword).or().like(User::getRealName, keyword));
         var page = users.selectPage(new Page<>(current, size), query.orderByAsc(User::getId));
@@ -85,6 +89,7 @@ public class StudentService {
         student.setUsername(dto.getUsername());
         student.setRealName(dto.getRealName());
         student.setMajorId(dto.getMajorId());
+        student.setClassName(dto.getClassName()==null?null:dto.getClassName().trim());
         student.setStatus(dto.getStatus());
         student.setRole("STUDENT");
         try {

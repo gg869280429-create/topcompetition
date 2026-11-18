@@ -27,6 +27,11 @@ public class FileController {
         var stored = service.upload(file);
         return Result.success(Map.of("id", stored.getId(), "name", stored.getOriginalName()));
     }
+    @PostMapping("/major-logo")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Result<Map<String,Object>> majorLogo(@RequestParam MultipartFile file) throws IOException {
+        var stored=service.uploadMajorLogo(file);return Result.success(Map.of("id",stored.getId(),"name",stored.getOriginalName()));
+    }
     @PostMapping("/content-cover")
     @PreAuthorize("hasAnyRole('ADMIN','MAJOR_ADMIN')")
     public Result<Map<String,Object>> contentCover(@RequestParam MultipartFile file) throws IOException {

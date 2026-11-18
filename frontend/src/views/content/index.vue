@@ -9,9 +9,10 @@
       </template>
     </PageHeader>
 
+    <el-tabs v-model="panel" @tab-change="changePanel"><el-tab-pane label="新闻管理" name="news"/><el-tab-pane label="轮播图管理" name="carousel"/></el-tabs>
     <PageContainer>
       <el-form :inline="true" :model="query" class="search-form" @submit.prevent>
-        <el-form-item label="分类">
+        <el-form-item v-if="panel==='news'" label="分类">
           <el-select v-model="query.category" placeholder="全部" clearable style="width: 130px">
             <el-option v-for="(label, value) in CONTENT_CATEGORY" :key="value" :label="label" :value="value" />
           </el-select>
@@ -30,7 +31,7 @@
         </el-form-item>
       </el-form>
 
-      <el-table v-loading="loading" :data="list" border stripe>
+      <el-table v-if="panel==='news'" v-loading="loading" :data="list" border stripe>
         <el-table-column prop="title" label="标题" min-width="200" show-overflow-tooltip />
         <el-table-column label="分类" width="90">
           <template #default="{ row }">
@@ -45,6 +46,7 @@
         <el-table-column prop="authorName" label="作者" width="110" show-overflow-tooltip />
         <el-table-column prop="viewCount" label="浏览" width="80" />
         <el-table-column prop="publishTime" label="发布时间" width="170" />
+        <el-table-column label="计划发布 / 下线" min-width="190"><template #default="{row}"><div>{{row.publishStartTime || '立即发布'}}</div><div>{{row.publishEndTime || '长期有效'}}</div></template></el-table-column>
         <el-table-column label="操作" :width="isAdmin ? 220 : 80" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row)">查看</el-button>
@@ -58,6 +60,15 @@
         </el-table-column>
       </el-table>
 
+      <el-table v-else v-loading="loading" :data="list" border stripe>
+       <el-table-column prop="title" label="新闻" min-width="200"/>
+       <el-table-column label="发布状态" width="100"><template #default="{row}">{{CONTENT_STATUS[row.status] || row.status}}</template></el-table-column>
+       <el-table-column label="轮播" width="100"><template #default="{row}"><el-tag :type="row.carouselEnabled ? 'success':'info'">{{row.carouselEnabled?'开启':'关闭'}}</el-tag></template></el-table-column>
+       <el-table-column prop="sortOrder" label="排序" width="80"/>
+       <el-table-column label="轮播开始 / 结束" min-width="190"><template #default="{row}"><div>{{row.carouselStartTime || '不限制开始'}}</div><div>{{row.carouselEndTime || '不限制结束'}}</div></template></el-table-column>
+       <el-table-column label="操作" width="100"><template #default="{row}"><el-button link type="primary" @click="openCarousel(row)">轮播设置</el-button></template></el-table-column>
+      </el-table>
+      <p v-if="panel==='carousel'" class="schedule-hint">仅已发布、处于新闻及轮播展示时段内的新闻会在首页轮播。排序数值越小越靠前。</p>
       <div class="pagination-wrapper">
         <el-pagination
           v-model:current-page="query.current"
@@ -71,6 +82,10 @@
       </div>
     </PageContainer>
 
+    <el-dialog v-model="carouselVisible" title="轮播设置" width="520px" :close-on-click-modal="false">
+     <el-form label-width="90px"><el-form-item label="首页轮播"><el-switch v-model="carouselForm.carouselEnabled"/></el-form-item><el-form-item label="排序"><el-input-number v-model="carouselForm.sortOrder" :min="0" :max="999999"/></el-form-item><el-form-item label="轮播开始"><el-date-picker v-model="carouselForm.carouselStartTime" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" placeholder="不限制开始"/></el-form-item><el-form-item label="轮播结束"><el-date-picker v-model="carouselForm.carouselEndTime" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" placeholder="不限制结束"/></el-form-item></el-form>
+     <template #footer><el-button @click="carouselVisible=false">取消</el-button><el-button type="primary" :loading="carouselSaving" @click="saveCarousel">保存轮播设置</el-button></template>
+    </el-dialog>
     <!-- 新增 / 编辑弹窗 -->
     <el-dialog
       v-model="dialogVisible"
@@ -100,6 +115,9 @@
         </el-form-item>
         <el-form-item label="首页轮播"><el-switch v-model="form.carouselEnabled" :disabled="form.category !== 'NEWS'" /><span> 开启需封面图片和官网地址</span></el-form-item>
         <el-form-item label="轮播排序"><el-input-number v-model="form.sortOrder" :min="0" :max="999999" /></el-form-item>
+        <el-form-item label="发布开始"><el-date-picker v-model="form.publishStartTime" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" placeholder="不设置则立即发布" /></el-form-item>
+        <el-form-item label="到期下线"><el-date-picker v-model="form.publishEndTime" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" placeholder="不设置则长期有效" /></el-form-item>
+        <template v-if="form.carouselEnabled"><el-form-item label="轮播开始"><el-date-picker v-model="form.carouselStartTime" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" placeholder="不限制开始" /></el-form-item><el-form-item label="轮播结束"><el-date-picker v-model="form.carouselEndTime" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" placeholder="不限制结束" /></el-form-item></template>
         <el-form-item label="正文">
           <el-input v-model="form.content" type="textarea" :rows="8" placeholder="请输入正文内容" />
         </el-form-item>
@@ -140,13 +158,19 @@ import {
   createContent,
   updateContent,
   deleteContent,
-  getContentCover, uploadContentCover, updateContentStatus
+  getContentCover, uploadContentCover, updateContentStatus, updateCarousel
 } from '@/api/content'
 import { CONTENT_CATEGORY, CONTENT_STATUS } from '@/constants/dict'
 
 const userStore = useUserStore()
 const isAdmin = computed(() => userStore.role === 'ADMIN' || userStore.role === 'MAJOR_ADMIN')
 
+const panel=ref('news'),carouselVisible=ref(false),carouselSaving=ref(false)
+const carouselForm=reactive({id:null,carouselEnabled:false,sortOrder:0,carouselStartTime:null,carouselEndTime:null})
+function changePanel(){query.category=panel.value==='carousel'?'NEWS':'';query.current=1;fetchList()}
+function validWindow(start,end,label){if(start && end && start>=end){ElMessage.warning(`${label}开始时间必须早于结束时间`);return false}return true}
+function openCarousel(row){Object.assign(carouselForm,{id:row.id,carouselEnabled:!!row.carouselEnabled,sortOrder:row.sortOrder||0,carouselStartTime:row.carouselStartTime||null,carouselEndTime:row.carouselEndTime||null});carouselVisible.value=true}
+async function saveCarousel(){if(!validWindow(carouselForm.carouselStartTime,carouselForm.carouselEndTime,'轮播'))return;carouselSaving.value=true;try{await updateCarousel(carouselForm.id,{...carouselForm});ElMessage.success('轮播配置已保存');carouselVisible.value=false;await fetchList()}finally{carouselSaving.value=false}}
 const loading = ref(false)
 const submitting = ref(false)
 const list = ref([])
@@ -159,7 +183,7 @@ const formRef = ref()
 const detail = ref({})
 const detailCover = ref('')
 const coverUploading = ref(false)
-const defaultForm = () => ({ id: null, title: '', category: 'NEWS', content: '', officialUrl: '', coverFileId: null, carouselEnabled: false, sortOrder: 0 })
+const defaultForm = () => ({ id: null, title: '', category: 'NEWS', content: '', officialUrl: '', coverFileId: null, carouselEnabled: false, sortOrder: 0, publishStartTime:null,publishEndTime:null,carouselStartTime:null,carouselEndTime:null })
 const form = reactive(defaultForm())
 const rules = {
   title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
@@ -190,7 +214,7 @@ function handleSearch() {
 
 function handleReset() {
   query.current = 1
-  query.category = ''
+  query.category = panel.value==='carousel'?'NEWS':''
   query.status = ''
   query.keyword = ''
   fetchList()
@@ -219,6 +243,7 @@ function handleSubmit() {
     try {
       if (form.officialUrl && !safeOfficialUrl(form.officialUrl)) { ElMessage.warning('请输入有效的HTTP/HTTPS官网地址'); return }
       if (form.carouselEnabled && (!form.coverFileId || !form.officialUrl)) { ElMessage.warning('轮播需要封面和官网地址'); return }
+      if(!validWindow(form.publishStartTime,form.publishEndTime,'新闻') || !validWindow(form.carouselStartTime,form.carouselEndTime,'轮播'))return
       const payload = { ...form }
       if (form.id) {
         await updateContent(form.id, payload)
@@ -259,7 +284,7 @@ function changeStatus(row, status) {
   ElMessageBox.confirm(`确定${action}内容「${row.title}」吗？`, '提示', { type: 'warning' })
     .then(async () => {
       await updateContentStatus(row.id, status)
-      ElMessage.success(`${action}成功`)
+      ElMessage.success(status==='PUBLISHED' && row.publishStartTime && new Date(row.publishStartTime.replace(' ','T'))>new Date() ? '已设置定时发布' : `${action}成功`)
       fetchList()
     })
     .catch(() => {})
@@ -279,6 +304,7 @@ onMounted(() => { if (isAdmin.value) fetchList() })
 </script>
 
 <style scoped>
+.schedule-hint { font-size:13px;color:var(--el-text-color-secondary); }
 .news-cover { display:block; max-width:100%; max-height:320px; object-fit:contain; margin:0 auto 16px; }
 .search-form {
   margin-bottom: var(--spacing-sm);

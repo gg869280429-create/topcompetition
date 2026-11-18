@@ -5,6 +5,7 @@
         <el-icon :size="24" color="#fff"><Trophy /></el-icon>
         <span v-if="!isCollapse" class="logo-text">竞赛管理平台</span>
       </div>
+      <div class="sidebar-scroll">
       <el-menu
         :default-active="activeMenu"
         :collapse="isCollapse"
@@ -14,10 +15,14 @@
         active-text-color="#fff"
         router
       >
-        <el-menu-item v-for="m in visibleMenus" :key="m.path" :index="m.path" :class="{ 'studio-menu-item': m.path === '/studio' }">
+        <el-menu-item v-for="m in visibleMenus.filter(m => m.path !== '/studio')" :key="m.path" :index="m.path">
           <el-icon><component :is="m.icon" /></el-icon>
           <template #title>{{ m.title }}</template>
         </el-menu-item>
+      </el-menu>
+      </div>
+      <el-menu v-if="visibleMenus.some(m => m.path === '/studio')" class="sidebar-footer" :default-active="activeMenu" :collapse="isCollapse" :collapse-transition="false" background-color="#001529" text-color="rgba(255,255,255,0.68)" active-text-color="#fff" router>
+        <el-menu-item index="/studio" class="studio-menu-item"><el-icon><OfficeBuilding /></el-icon><template #title>大师工作室</template></el-menu-item>
       </el-menu>
     </el-aside>
 
@@ -89,7 +94,6 @@ const menuConfig = [
   { path: '/dashboard', title: '首页', icon: 'HomeFilled', roles: ['ADMIN', 'MAJOR_ADMIN', 'TEACHER', 'STUDENT'] },
   { path: '/competition', title: '竞赛管理', icon: 'Trophy', roles: ['ADMIN', 'MAJOR_ADMIN'] },
   { path: '/registration', title: '报名管理', icon: 'Tickets', roles: ['ADMIN', 'MAJOR_ADMIN', 'STUDENT'] },
-  { path: '/guidance', title: '指导管理', icon: 'UserFilled', roles: ['ADMIN', 'MAJOR_ADMIN', 'TEACHER'] },
   { path: '/award', title: '获奖记录', icon: 'Medal', roles: ['ADMIN', 'MAJOR_ADMIN', 'TEACHER', 'STUDENT'] },
   { path: '/profile', title: '个人中心', icon: 'User', roles: ['STUDENT', 'TEACHER'] },
   { path: '/content', title: '新闻资讯', icon: 'Document', roles: ['ADMIN', 'MAJOR_ADMIN', 'TEACHER', 'STUDENT'] },
@@ -102,7 +106,7 @@ const menuConfig = [
 const visibleMenus = computed(() => {
   const menus = menuConfig.filter(m => m.roles.includes(userStore.role)).map(m =>
     m.path === '/content' ? { ...m, title: ['ADMIN', 'MAJOR_ADMIN'].includes(userStore.role) ? '新闻管理' : '竞赛预览' } : m)
-  if (userStore.role === 'TEACHER') return ['/dashboard', '/guidance', '/award', '/content', '/profile'].map(path => menus.find(m => m.path === path))
+  if (userStore.role === 'TEACHER') return ['/dashboard', '/award', '/content', '/profile'].map(path => menus.find(m => m.path === path))
   if (userStore.role !== 'STUDENT') return menus
   return ['/dashboard', '/content', '/team', '/registration', '/award', '/profile'].map(path => {
     const menu = menus.find(m => m.path === path)
@@ -135,12 +139,16 @@ onMounted(fetchUnread)
 
 <style scoped>
 .layout {
-  height: 100%;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .layout-aside {
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  flex-shrink: 0;
   background-color: #001529;
   overflow: hidden;
   transition: width 0.2s;
@@ -163,33 +171,40 @@ onMounted(fetchUnread)
   font-weight: 600;
 }
 
-.layout-aside :deep(.el-menu) {
-  border-right: none;
+.sidebar-scroll {
   flex: 1;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
   overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.25) transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar { width: 6px; }
+.sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); border-radius: 3px; }
+
+.layout-aside :deep(.el-menu) {
+  border-right: none;
+  width: 100%;
 }
 
 .layout-aside :deep(.el-menu-item) {
   flex-shrink: 0;
 }
 
-.layout-aside :deep(.studio-menu-item) {
-  margin-top: auto;
-  position: sticky;
-  bottom: 0;
-  z-index: 1;
+.sidebar-footer {
+  flex-shrink: 0;
   background: #001529;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .layout-body {
   min-width: 0;
+  min-height: 0;
 }
 
 .layout-header {
+  flex-shrink: 0;
   height: var(--header-height);
   background-color: var(--color-bg-card);
   border-bottom: 1px solid var(--color-border-light);
@@ -230,6 +245,7 @@ onMounted(fetchUnread)
 }
 
 .layout-main {
+  min-height: 0;
   background-color: var(--color-bg);
   padding: var(--spacing-md);
 }

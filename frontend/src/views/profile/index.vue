@@ -4,6 +4,7 @@
     <template v-if="isTeacher">
       <el-tabs v-model="tab" @tab-change="loadTab">
         <el-tab-pane label="个人资料" name="profile"><ProfileSettings /></el-tab-pane>
+        <el-tab-pane label="我的指导" name="guidance"><MyGuidance v-if="tab === 'guidance'" /></el-tab-pane>
         <el-tab-pane label="指导名额" name="quota">
           <GuidanceQuotaSummary v-if="tab === 'quota'" />
           <PageContainer v-loading="loading">
@@ -26,17 +27,18 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import PageHeader from '@/components/PageHeader.vue'
 import PageContainer from '@/components/PageContainer.vue'
+import MyGuidance from '@/components/MyGuidance.vue'
 import ProfileSettings from '@/components/ProfileSettings.vue'
 import GuidanceQuotaSummary from '@/components/GuidanceQuotaSummary.vue'
 import { pageMyCompetitions } from '@/api/guidance'
 import request from '@/api/request'
 import { AWARD_LEVEL } from '@/constants/dict'
 const router = useRouter(), store = useUserStore(), isTeacher = computed(() => store.role === 'TEACHER')
-const tab = ref('profile'), loading = ref(false), quotas = ref([]), awards = ref([])
+const tab = ref(useRoute().query.tab === 'guidance' ? 'guidance' : 'profile'), loading = ref(false), quotas = ref([]), awards = ref([])
 const quotaPage = ref(1), quotaTotal = ref(0), awardPage = ref(1), awardTotal = ref(0)
 async function loadQuotas() {
   loading.value = true

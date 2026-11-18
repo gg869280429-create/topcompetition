@@ -31,6 +31,8 @@ public class FileService {
         return uploadAwardMaterial(upload, "AWARD_CERTIFICATE");
     }
 
+    public StoredFile uploadMajorLogo(MultipartFile file) throws IOException { requireRoles("ADMIN"); return upload(file,"MAJOR_LOGO"); }
+
     public StoredFile uploadContentCover(MultipartFile file) throws IOException {
         requireRoles("ADMIN", "MAJOR_ADMIN"); return upload(file, "CONTENT_COVER");
     }
@@ -51,7 +53,7 @@ public class FileService {
         if (name.length() > 255) throw new BusinessException("文件名过长");
         String ext = name.substring(name.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT);
         boolean image = Set.of("png", "jpg", "jpeg", "webp").contains(ext);
-        boolean imageOnly = Set.of("CONTENT_COVER", "AWARD_REGISTRATION_SCREENSHOT", "AWARD_PROCESS_PHOTO").contains(bizType);
+        boolean imageOnly = Set.of("MAJOR_LOGO", "CONTENT_COVER", "AWARD_REGISTRATION_SCREENSHOT", "AWARD_PROCESS_PHOTO").contains(bizType);
         boolean allowed = imageOnly ? image : "COMPETITION_DOCUMENT".equals(bizType) ? Set.of("pdf", "doc", "docx").contains(ext) : "AWARD_OFFICIAL_LIST".equals(bizType) ? image || "pdf".equals(ext) : image || Set.of("pdf", "doc", "docx").contains(ext);
         if (!allowed) throw new BusinessException(imageOnly ? "该材料必须为PNG、JPEG或WEBP图片" : "文件格式不受支持");
         byte[] bytes = upload.getBytes();
@@ -104,7 +106,10 @@ public class FileService {
         if (!"ADMIN".equals(UserContext.get().getRole()) && !UserContext.getUserId().equals(file.getUploaderId())) throw new BusinessException(403,"无权关联其他用户的封面");
     }
     public ResponseEntity<org.springframework.core.io.Resource> contentCover(Long id) {
-        var file = get(id,"CONTENT_COVER");
+        return image(get(id,"CONTENT_COVER"));
+    }
+    public ResponseEntity<org.springframework.core.io.Resource> majorLogo(Long id) {return image(get(id,"MAJOR_LOGO"));}
+    private ResponseEntity<org.springframework.core.io.Resource> image(StoredFile file) {
         Path path = directory.resolve(file.getStorageName()).normalize();
         if (!path.startsWith(directory) || !Files.isRegularFile(path)) throw new BusinessException("封面图片已丢失");
         return ResponseEntity.ok().contentType(MediaType.parseMediaType(file.getContentType()))

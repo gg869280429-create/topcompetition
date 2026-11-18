@@ -78,6 +78,7 @@ public class GuidanceServiceImpl implements GuidanceService {
     @Transactional
     public Long saveQuota(GuidanceQuotaDTO dto) {
         competitionService.requireManageable(dto.getCompetitionId());
+        competitionService.requireGuidanceAssignable(dto.getCompetitionId());
         teacherService.lockActive(dto.getTeacherId());
         UserInfoVO teacher = userService.getById(dto.getTeacherId());
         if (!"TEACHER".equals(teacher.getRole())) {

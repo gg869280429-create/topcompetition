@@ -14,6 +14,8 @@ public class CompetitionVO {
 
     private Long majorId;
     private String majorName;
+    private String majorIconCode;
+    private Long majorLogoFileId;
 
     private String title;
 

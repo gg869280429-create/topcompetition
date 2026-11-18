@@ -52,6 +52,7 @@ export const CONTENT_CATEGORY = {
 
 // 内容状态
 export const CONTENT_STATUS = {
+  SCHEDULED: '待发布',
   DRAFT: '草稿',
   PUBLISHED: '已发布'
 }

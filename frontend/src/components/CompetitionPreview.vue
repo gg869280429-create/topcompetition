@@ -8,7 +8,7 @@
           <el-card class="comp-card" shadow="hover">
             <div class="comp-title">{{ c.title }}</div>
             <div class="comp-tags">
-              <el-tag size="small" type="info">{{ c.majorName || '待补录专业' }}</el-tag>
+              <el-tag size="small" type="info"><MajorLabel :name="c.majorName" :major-id="c.majorId" :icon-code="c.majorIconCode" :logo-file-id="c.majorLogoFileId" /></el-tag>
               <el-tag size="small">{{ COMPETITION_LEVEL[c.level] || c.level }}</el-tag>
               <el-tag size="small" type="info">{{ COMPETITION_TYPE[c.competitionType] || c.competitionType }}</el-tag>
               <el-tag size="small" :type="statusTagType(c.status)">{{ COMPETITION_STATUS[c.status] || c.status }}</el-tag>
@@ -33,7 +33,7 @@
         <el-descriptions-item label="竞赛名称" :span="2">{{ detail.title }}</el-descriptions-item>
         <el-descriptions-item label="赛制">{{ COMPETITION_TYPE[detail.competitionType] || detail.competitionType }}</el-descriptions-item>
         <el-descriptions-item label="级别">{{ COMPETITION_LEVEL[detail.level] || detail.level }}</el-descriptions-item>
-        <el-descriptions-item label="所属专业">{{ detail.majorName || '待补录' }}</el-descriptions-item>
+        <el-descriptions-item label="所属专业"><MajorLabel :name="detail.majorName" :major-id="detail.majorId" :icon-code="detail.majorIconCode" :logo-file-id="detail.majorLogoFileId" placeholder="待补录" /></el-descriptions-item>
         <el-descriptions-item label="学科类别">{{ detail.category || '-' }}</el-descriptions-item>
         <el-descriptions-item label="主办单位">{{ detail.organizer || '-' }}</el-descriptions-item>
         <el-descriptions-item label="团队人数上限">{{ detail.maxMembers }}</el-descriptions-item>
@@ -51,6 +51,7 @@
 </template>
 
 <script setup>
+import MajorLabel from '@/components/MajorLabel.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'

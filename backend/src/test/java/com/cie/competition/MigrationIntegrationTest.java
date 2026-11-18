@@ -30,12 +30,13 @@ class MigrationIntegrationTest extends IsolatedDatabaseTest {
         Path root = Path.of("../sql");
         String schema = Files.readString(root.resolve("init.sql"));
         Map<String, Set<String>> additions = Map.of(
-                "sys_user", Set.of("token_version"),
+                "sys_user", Set.of("token_version", "class_name"),
+                "sys_major", Set.of("icon_code", "logo_file_id"),
                 "competition", Set.of("manager_id", "cancellation_reason", "cancelled_at", "major_id"),
                 "registration", Set.of("leader_name_snapshot", "major_name_snapshot", "roster_locked_at", "roster_locked_by", "source_team_id"),
                 "registration_member", Set.of("active_key", "current_member", "name_snapshot", "major_id_snapshot", "major_name_snapshot"),
                 "guidance", Set.of("active_key", "ended_time", "end_reason", "members_snapshot"),
-                "content", Set.of("official_url", "carousel_enabled", "sort_order"),
+                "content", Set.of("official_url", "carousel_enabled", "sort_order", "publish_start_time", "publish_end_time", "carousel_start_time", "carousel_end_time"),
                 "award", Set.of("registrant_id", "review_time", "major_id", "major_name_snapshot", "team_name_snapshot", "participants_snapshot", "revocation_reason", "achievement_name", "achievement_key", "legacy_record", "official_list_file_id", "registration_screenshot_file_id", "process_photo_file_ids"));
         for (var entry : additions.entrySet()) {
             var pattern = Pattern.compile("(?s)(CREATE TABLE IF NOT EXISTS `" + entry.getKey() + "` \\(.*?;)" );
@@ -50,8 +51,9 @@ class MigrationIntegrationTest extends IsolatedDatabaseTest {
         schema = schema.replace("(`competition_id`, `user_id`, `active_key`)", "(`competition_id`, `user_id`)")
                 .replace("`uk_achievement` (`competition_id`, `registration_id`, `achievement_key`)", "`uk_competition_registration` (`competition_id`, `registration_id`)")
                 .replace("(`registration_id`, `teacher_id`, `active_key`)", "(`registration_id`, `teacher_id`)");
-        schema = schema.replaceAll("(?m)^\\s*KEY `idx_classification_major`[^\\r\\n]*\\R", "");
+        schema = schema.replaceAll("(?m)^\\s*KEY `(?:idx_classification_major|idx_student_class|idx_content_schedule)`[^\\r\\n]*\\R", "");
         schema = schema.replaceAll("(?im)^CREATE DATABASE[^;]*;", "").replaceAll("(?im)^USE\\s+[^;]*;", "");
+        schema = schema.replaceAll("(?im)^CREATE INDEX `?idx_(student_class|content_schedule)`?[^;]*;", "");
         String name = "competition_test_migration_" + UUID.randomUUID().toString().replace("-", "");
         try (Connection connection = dataSource.getConnection()) {
             String originalCatalog = connection.getCatalog();
@@ -92,6 +94,9 @@ class MigrationIntegrationTest extends IsolatedDatabaseTest {
                 execute(connection, Files.readString(root.resolve("migrations/20261112_04_student_profile.sql")));
                 execute(connection, Files.readString(root.resolve("migrations/20261112_05_teacher_roster.sql")));
                 execute(connection, Files.readString(root.resolve("migrations/20261112_06_student_team.sql")));
+                execute(connection, Files.readString(root.resolve("migrations/20261118_07_admin_panel.sql")));
+                try(var result=statement.executeQuery("SELECT class_name,real_name FROM sys_user WHERE id=1")){assertTrue(result.next());assertNull(result.getString(1));assertEquals("原学生",result.getString(2));}
+                try(var result=statement.executeQuery("SELECT icon_code,logo_file_id,name FROM sys_major WHERE id=1")){assertTrue(result.next());assertNull(result.getString(1));assertNull(result.getObject(2));assertEquals("原专业",result.getString(3));}
                 try(var result=statement.executeQuery("SELECT source_team_id FROM registration WHERE id=1")){assertTrue(result.next());assertNull(result.getObject(1));}
                 try(var result=statement.executeQuery("SELECT (SELECT COUNT(*) FROM student_team)+(SELECT COUNT(*) FROM student_team_member)")){assertTrue(result.next());assertEquals(0,result.getInt(1));}
                 try(var result=statement.executeQuery("SELECT roster_locked_at,review_comment,update_time FROM registration WHERE id=1")) {

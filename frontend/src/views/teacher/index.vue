@@ -16,7 +16,7 @@
       </el-table>
       <el-pagination v-model:current-page="query.current" v-model:page-size="query.size" :total="total" layout="total, prev, pager, next" @current-change="load" style="margin-top: 16px; justify-content: flex-end" />
     </PageContainer>
-    <el-dialog v-model="visible" :title="form.id ? '编辑教师' : '新增教师'" width="560px" :close-on-click-modal="false">
+    <el-dialog v-model="visible" :title="form.id ? '编辑教师' : '新增教师'" width="min(95vw,850px)" :close-on-click-modal="false">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
         <el-form-item label="登录账号" prop="username"><el-input v-model="form.username" maxlength="64" /></el-form-item>
         <el-form-item :label="form.id ? '重设密码' : '初始密码'" prop="password"><el-input v-model="form.password" type="password" show-password autocomplete="new-password" :placeholder="form.id ? '留空保持原密码' : '至少8个字符'" /></el-form-item>
@@ -26,7 +26,9 @@
         <el-form-item label="教师简介"><el-input v-model="form.biography" type="textarea" :rows="4" maxlength="4000" show-word-limit /></el-form-item>
         <el-form-item label="启用"><el-switch v-model="form.status" :active-value="1" :inactive-value="0" /></el-form-item>
       </el-form>
-      <template #footer><el-button @click="visible = false">取消</el-button><el-button type="primary" :loading="saving" @click="save">保存</el-button></template>
+      <TeacherQuotaEditor v-if="visible && form.id" :key="form.id" :teacher-id="form.id" />
+      <el-alert v-else title="请先保存新教师，再在编辑中配置竞赛指导名额。" type="info" :closable="false" />
+      <template #footer><el-button @click="visible = false">关闭</el-button><el-button type="primary" :loading="saving" @click="save">保存</el-button></template>
     </el-dialog>
     <el-dialog v-model="detailVisible" :title="`教师详情 · ${selectedTeacher.realName || selectedTeacher.username || ''}`" width="850px">
       <el-descriptions :column="2" border>
@@ -50,6 +52,7 @@
 import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { teacherQuotaDetails, increaseTeacherQuota } from '@/api/guidance'
+import TeacherQuotaEditor from '@/components/TeacherQuotaEditor.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import { pageTeacher, listMajors, createTeacher, updateTeacher } from '@/api/teacher'

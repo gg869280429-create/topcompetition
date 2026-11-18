@@ -24,7 +24,7 @@ public class MajorService {
 
     public List<Map<String, Object>> list(String keyword) {
         admin();
-        return jdbc.queryForList("SELECT id,name,code,status FROM sys_major WHERE name LIKE ? ORDER BY id", "%" + (keyword == null ? "" : keyword) + "%");
+        return jdbc.queryForList("SELECT id,name,code,status,icon_code AS iconCode,logo_file_id AS logoFileId FROM sys_major WHERE name LIKE ? ORDER BY id", "%" + (keyword == null ? "" : keyword) + "%");
     }
 
     @Transactional

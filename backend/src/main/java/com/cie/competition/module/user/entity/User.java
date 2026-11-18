@@ -33,6 +33,7 @@ public class User {
 
     /** 所属专业 ID */
     private Long majorId;
+    private String className;
 
     private String email;
 

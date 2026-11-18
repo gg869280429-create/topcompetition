@@ -2,7 +2,7 @@
   <div>
     <PageHeader title="学生管理"><template #actions><el-button type="primary" @click="open()">新增学生</el-button></template></PageHeader>
     <PageContainer>
-      <el-form inline @submit.prevent="search">
+      <el-form inline @submit.prevent="search"><el-form-item label="班级"><el-input v-model="query.className" placeholder="输入完整班级名称" clearable /></el-form-item>
         <el-form-item label="学生"><el-input v-model="query.keyword" placeholder="姓名或用户名" clearable /></el-form-item>
         <el-form-item label="专业"><el-select v-model="query.majorId" clearable style="width:150px"><el-option v-for="m in allowedMajors" :key="m.id" :label="m.name" :value="m.id" /></el-select></el-form-item>
         <el-form-item label="状态"><el-select v-model="query.status" clearable style="width:100px"><el-option label="启用" :value="1"/><el-option label="停用" :value="0"/></el-select></el-form-item>
@@ -11,7 +11,7 @@
       <el-table v-loading="loading" :data="rows" border stripe>
         <el-table-column prop="realName" label="姓名" min-width="100" />
         <el-table-column prop="username" label="登录账号" min-width="120" />
-        <el-table-column prop="majorName" label="所属专业" min-width="150" />
+        <el-table-column prop="className" label="班级" min-width="150"/><el-table-column prop="majorName" label="所属专业" min-width="150" />
 
         <el-table-column label="状态" width="90"><template #default="{ row }"><el-tag :type="row.status === 1 ? 'success' : 'info'">{{ row.status === 1 ? '启用' : '停用' }}</el-tag></template></el-table-column>
         <el-table-column label="操作" width="90"><template #default="{ row }"><el-button link type="primary" @click="open(row)">编辑</el-button></template></el-table-column>
@@ -26,7 +26,7 @@
         <el-form-item label="所属专业" prop="majorId"><el-select v-model="form.majorId" style="width:100%"><el-option v-for="m in allowedMajors" :key="m.id" :label="m.name" :value="m.id" /></el-select></el-form-item>
 
 
-        <el-form-item label="启用"><el-switch v-model="form.status" :active-value="1" :inactive-value="0" /></el-form-item>
+        <el-form-item label="班级"><el-input v-model="form.className" maxlength="64" placeholder="例如：2026计科1班" /></el-form-item><el-form-item label="启用"><el-switch v-model="form.status" :active-value="1" :inactive-value="0" /></el-form-item>
       </el-form>
       <template #footer><el-button @click="visible = false">取消</el-button><el-button type="primary" :loading="saving" @click="save">保存</el-button></template>
     </el-dialog>
@@ -43,8 +43,8 @@ import { listMajors } from '@/api/teacher'
 import { useUserStore } from '@/store/user'
 const user = useUserStore()
 const rows = ref([]), total = ref(0), loading = ref(false), saving = ref(false), visible = ref(false), majors = ref([]), formRef = ref()
-const query = reactive({ keyword: '', majorId: null, status: null, current: 1, size: 10 })
-const empty = () => ({ id: null, username: '', password: '', realName: '', majorId: null, status: 1 })
+const query = reactive({ keyword: '', className: '', majorId: null, status: null, current: 1, size: 10 })
+const empty = () => ({ id: null, username: '', password: '', realName: '', className: '', majorId: null, status: 1 })
 const form = reactive(empty())
 const allowedMajors = computed(() => majors.value.filter(m => user.role !== 'MAJOR_ADMIN' || m.id === user.userInfo?.majorId))
 const rules = {

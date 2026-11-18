@@ -27,3 +27,5 @@ export function updateContentStatus(id, status) {
 export function contentCarousel() { return request.get('/content/carousel') }
 export function getContentCover(id) { return request.get(`/content/${id}/cover`, { responseType: 'blob' }) }
 export function uploadContentCover(file) { const data=new FormData(); data.append('file',file); return request.post('/file/content-cover',data) }
+
+export const updateCarousel = (id,data) => request.put(`/content/${id}/carousel`,data)

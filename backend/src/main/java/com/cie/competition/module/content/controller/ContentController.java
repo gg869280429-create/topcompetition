@@ -60,6 +60,10 @@ public class ContentController {
         return Result.success();
     }
 
+    @PutMapping("/{id}/carousel")
+    @PreAuthorize("hasAnyRole('ADMIN','MAJOR_ADMIN')")
+    public Result<Void> carousel(@PathVariable Long id,@Valid @RequestBody com.cie.competition.module.content.dto.CarouselDTO dto){contentService.updateCarousel(id,dto);return Result.success();}
+
     @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('ADMIN','MAJOR_ADMIN')")
     public Result<Void> updateStatus(@PathVariable Long id, @RequestParam String status) {

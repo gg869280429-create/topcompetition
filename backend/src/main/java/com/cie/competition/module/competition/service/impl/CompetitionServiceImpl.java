@@ -293,8 +293,11 @@ public class CompetitionServiceImpl implements CompetitionService {
         CompetitionVO vo = new CompetitionVO();
         BeanUtils.copyProperties(competition, vo);
         if (competition.getMajorId() != null) {
-            var names = jdbc.queryForList("SELECT name FROM sys_major WHERE id=?", String.class, competition.getMajorId());
-            vo.setMajorName(names.isEmpty() ? null : names.get(0));
+            var names = jdbc.queryForList("SELECT name,icon_code,logo_file_id FROM sys_major WHERE id=?", competition.getMajorId());
+            if(!names.isEmpty()) {
+                var major=names.get(0);vo.setMajorName((String)major.get("name"));vo.setMajorIconCode((String)major.get("icon_code"));
+                if(major.get("logo_file_id")!=null)vo.setMajorLogoFileId(((Number)major.get("logo_file_id")).longValue());
+            }
         }
         if (competition.getDocumentFileId() != null) vo.setDocumentName(fileService.get(competition.getDocumentFileId()).getOriginalName());
         return vo;

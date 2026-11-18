@@ -16,6 +16,11 @@ public class ContentVO {
 
     private String content;
 
+    private java.time.LocalDateTime publishStartTime;
+    private java.time.LocalDateTime publishEndTime;
+    private java.time.LocalDateTime carouselStartTime;
+    private java.time.LocalDateTime carouselEndTime;
+
     private Long coverFileId;
     private String officialUrl;
     private Boolean carouselEnabled = false;

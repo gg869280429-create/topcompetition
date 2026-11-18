@@ -55,6 +55,7 @@ abstract class IsolatedDatabaseTest {
             }
             System.out.println("独立测试库：" + database);
         }
+        registry.add("app.content-scheduling.enabled", () -> "false");
         registry.add("spring.datasource.url", () -> databaseUrl);
         registry.add("spring.datasource.username", () -> settings.getProperty("spring.datasource.username"));
         registry.add("spring.datasource.password", () -> settings.getProperty("spring.datasource.password"));

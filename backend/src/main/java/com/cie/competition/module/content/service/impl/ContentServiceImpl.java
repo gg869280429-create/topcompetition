@@ -42,7 +42,7 @@ public class ContentServiceImpl implements ContentService {
                 .eq(StringUtils.hasText(query.getStatus()), Content::getStatus, query.getStatus())
                 .like(StringUtils.hasText(query.getKeyword()), Content::getTitle, query.getKeyword());
         if (!isManager()) {
-            wrapper.eq(Content::getStatus, "PUBLISHED");
+            publishedWindow(wrapper,LocalDateTime.now());
         }
         wrapper.orderByDesc(Content::getCreateTime);
         Page<Content> page = contentMapper.selectPage(new Page<>(query.getCurrent(), query.getSize()), wrapper);
@@ -52,7 +52,7 @@ public class ContentServiceImpl implements ContentService {
     @Override
     public ContentVO getById(Long id) {
         Content content = getContent(id);
-        if (!isManager() && !"PUBLISHED".equals(content.getStatus())) {
+        if (!isManager() && !visible(content)) {
             throw new BusinessException(ResultCode.FORBIDDEN.getCode(), "无权限查看该内容");
         }
         if ("PUBLISHED".equals(content.getStatus())) {
@@ -94,7 +94,7 @@ public class ContentServiceImpl implements ContentService {
         contentMapper.update(null,new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Content>()
             .eq(Content::getId,id).set(Content::getTitle,content.getTitle()).set(Content::getContent,content.getContent())
             .set(Content::getCategory,content.getCategory()).set(Content::getCoverFileId,content.getCoverFileId())
-            .set(Content::getOfficialUrl,content.getOfficialUrl()).set(Content::getCarouselEnabled,content.getCarouselEnabled()).set(Content::getSortOrder,content.getSortOrder()));
+            .set(Content::getOfficialUrl,content.getOfficialUrl()).set(Content::getCarouselEnabled,content.getCarouselEnabled()).set(Content::getSortOrder,content.getSortOrder()).set(Content::getPublishStartTime,dto.getPublishStartTime()).set(Content::getPublishEndTime,dto.getPublishEndTime()).set(Content::getCarouselStartTime,dto.getCarouselStartTime()).set(Content::getCarouselEndTime,dto.getCarouselEndTime()));
     }
 
     @Override
@@ -116,26 +116,59 @@ public class ContentServiceImpl implements ContentService {
         if ("PUBLISHED".equals(status)) {
             if ("NEWS".equals(content.getCategory())) validateUrl(content.getOfficialUrl(),true);
             validateCarousel(content.getCarouselEnabled(),content.getCoverFileId(),content.getOfficialUrl(),content.getCategory());
-            content.setPublishTime(LocalDateTime.now());
+            var now=LocalDateTime.now();
+            if(content.getPublishEndTime()!=null && !content.getPublishEndTime().isAfter(now))throw new BusinessException("新闻结束时间已到期，请先修改时间");
+            if(content.getPublishStartTime()!=null && content.getPublishStartTime().isAfter(now))content.setStatus("SCHEDULED");
+            else content.setPublishTime(now);
         }
         contentMapper.updateById(content);
     }
 
     public List<ContentVO> carousel() {
-        var list=contentMapper.selectList(new LambdaQueryWrapper<Content>().eq(Content::getStatus,"PUBLISHED")
-            .eq(Content::getCategory,"NEWS").eq(Content::getCarouselEnabled,true).isNotNull(Content::getCoverFileId)
-            .isNotNull(Content::getOfficialUrl).orderByAsc(Content::getSortOrder).orderByDesc(Content::getPublishTime).last("LIMIT 20"));
+        var now=LocalDateTime.now();
+        var wrapper=new LambdaQueryWrapper<Content>().eq(Content::getCategory,"NEWS").eq(Content::getCarouselEnabled,true)
+            .isNotNull(Content::getCoverFileId).isNotNull(Content::getOfficialUrl);
+        publishedWindow(wrapper,now);
+        wrapper.and(w->w.isNull(Content::getCarouselStartTime).or().le(Content::getCarouselStartTime,now))
+            .and(w->w.isNull(Content::getCarouselEndTime).or().gt(Content::getCarouselEndTime,now))
+            .orderByAsc(Content::getSortOrder).orderByDesc(Content::getPublishTime).last("LIMIT 20");
+        var list=contentMapper.selectList(wrapper);
         return assembleVOs(list);
     }
     public Long coverFileId(Long id) {
         var content=getContent(id);
-        if(!isManager() && !"PUBLISHED".equals(content.getStatus()))throw new BusinessException(403,"无权限查看该内容");
+        if(!isManager() && !visible(content))throw new BusinessException(403,"无权限查看该内容");
         return content.getCoverFileId();
+    }
+    private void publishedWindow(LambdaQueryWrapper<Content> wrapper,LocalDateTime now) {
+        wrapper.eq(Content::getStatus,"PUBLISHED")
+            .and(w->w.isNull(Content::getPublishStartTime).or().le(Content::getPublishStartTime,now))
+            .and(w->w.isNull(Content::getPublishEndTime).or().gt(Content::getPublishEndTime,now));
+    }
+    private boolean visible(Content content) {
+        var now=LocalDateTime.now();return "PUBLISHED".equals(content.getStatus())
+            && (content.getPublishStartTime()==null || !content.getPublishStartTime().isAfter(now))
+            && (content.getPublishEndTime()==null || content.getPublishEndTime().isAfter(now));
+    }
+    private void validateWindow(LocalDateTime start,LocalDateTime end,String label) {
+        if(start!=null && end!=null && !start.isBefore(end))throw new BusinessException(label+"开始时间必须早于结束时间");
+    }
+    @Override @org.springframework.transaction.annotation.Transactional
+    public void updateCarousel(Long id,com.cie.competition.module.content.dto.CarouselDTO dto) {
+        requireManager();var content=lockContent(id);
+        validateWindow(dto.getCarouselStartTime(),dto.getCarouselEndTime(),"轮播");
+        validateCarousel(dto.getCarouselEnabled(),content.getCoverFileId(),content.getOfficialUrl(),content.getCategory());
+        if(Boolean.TRUE.equals(dto.getCarouselEnabled()) && dto.getCarouselEndTime()!=null && !dto.getCarouselEndTime().isAfter(LocalDateTime.now()))throw new BusinessException("轮播结束时间已到期");
+        contentMapper.update(null,new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Content>().eq(Content::getId,id)
+            .set(Content::getCarouselEnabled,dto.getCarouselEnabled()).set(Content::getSortOrder,dto.getSortOrder())
+            .set(Content::getCarouselStartTime,dto.getCarouselStartTime()).set(Content::getCarouselEndTime,dto.getCarouselEndTime()));
     }
     private void requireManager() {
         if(!isManager()) throw new BusinessException(403,"仅管理员可以维护新闻");
     }
     private void validateDraft(ContentDTO dto) {
+        validateWindow(dto.getPublishStartTime(),dto.getPublishEndTime(),"新闻");
+        validateWindow(dto.getCarouselStartTime(),dto.getCarouselEndTime(),"轮播");
         validateUrl(dto.getOfficialUrl(),false);
         if(dto.getCoverFileId()!=null) files.validateContentCover(dto.getCoverFileId());
         if(dto.getSortOrder()!=null && dto.getSortOrder()<0) throw new BusinessException("排序不能小于0");

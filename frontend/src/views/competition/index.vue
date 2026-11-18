@@ -48,7 +48,7 @@
         <el-table-column label="赛制" width="90">
           <template #default="{ row }">{{ COMPETITION_TYPE[row.competitionType] || row.competitionType }}</template>
         </el-table-column>
-        <el-table-column label="所属专业" min-width="170"><template #default="{row}">{{ row.majorName || '待补录专业' }} <el-button v-if="canManage(row)" link type="primary" @click="openClassification(row)">{{ row.majorId ? '调整分类' : '补录' }}</el-button></template></el-table-column>
+        <el-table-column label="所属专业" min-width="170"><template #default="{row}"><MajorLabel :name="row.majorName" :major-id="row.majorId" :icon-code="row.majorIconCode" :logo-file-id="row.majorLogoFileId" /> <el-button v-if="canManage(row)" link type="primary" @click="openClassification(row)">{{ row.majorId ? '调整分类' : '补录' }}</el-button></template></el-table-column>
         <el-table-column prop="category" label="类别" width="120" show-overflow-tooltip />
         <el-table-column label="报名时间" width="200" show-overflow-tooltip>
           <template #default="{ row }">
@@ -230,7 +230,7 @@
         <el-descriptions-item label="竞赛名称" :span="2">{{ detail.title }}</el-descriptions-item>
         <el-descriptions-item label="赛制">{{ COMPETITION_TYPE[detail.competitionType] || detail.competitionType }}</el-descriptions-item>
         <el-descriptions-item label="级别">{{ COMPETITION_LEVEL[detail.level] || detail.level }}</el-descriptions-item>
-        <el-descriptions-item label="所属专业">{{ detail.majorName || '待补录' }}</el-descriptions-item>
+        <el-descriptions-item label="所属专业"><MajorLabel :name="detail.majorName" :major-id="detail.majorId" :icon-code="detail.majorIconCode" :logo-file-id="detail.majorLogoFileId" placeholder="待补录" /></el-descriptions-item>
         <el-descriptions-item label="学科类别">{{ detail.category || '-' }}</el-descriptions-item>
         <el-descriptions-item label="主办单位">{{ detail.organizer || '-' }}</el-descriptions-item>
         <el-descriptions-item label="团队人数上限">{{ detail.maxMembers }}</el-descriptions-item>
@@ -253,6 +253,7 @@
 </template>
 
 <script setup>
+import MajorLabel from '@/components/MajorLabel.vue'
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'

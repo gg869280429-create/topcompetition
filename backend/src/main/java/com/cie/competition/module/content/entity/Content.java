@@ -21,6 +21,11 @@ public class Content {
 
     private String content;
 
+    private java.time.LocalDateTime publishStartTime;
+    private java.time.LocalDateTime publishEndTime;
+    private java.time.LocalDateTime carouselStartTime;
+    private java.time.LocalDateTime carouselEndTime;
+
     private Long coverFileId;
     private String officialUrl;
     private Boolean carouselEnabled = false;
@@ -30,7 +35,7 @@ public class Content {
     /** 分类：NOTICE 通知 / NEWS 新闻 / ANNOUNCEMENT 公告 */
     private String category;
 
-    /** 状态：DRAFT 草稿 / PUBLISHED 已发布 */
+    /** 状态：DRAFT 草稿 / SCHEDULED 待发布 / PUBLISHED 已发布 */
     private String status;
 
     private Long authorId;

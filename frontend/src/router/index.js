@@ -36,12 +36,7 @@ const routes = [
         component: () => import('@/views/registration/index.vue'),
         meta: { title: '报名管理', requiresAuth: true }
       },
-      {
-        path: 'guidance',
-        name: 'Guidance',
-        component: () => import('@/views/guidance/index.vue'),
-        meta: { title: '指导管理', requiresAuth: true }
-      },
+      { path: 'guidance', redirect: () => ({path: JSON.parse(localStorage.getItem('userInfo') || 'null')?.role === 'TEACHER' ? '/profile' : '/teacher', query: {tab:'guidance'}}) },
       {
         path: 'award',
         name: 'Award',

@@ -31,7 +31,7 @@ class RegistrationIntegrityTest {
     @InjectMocks RegistrationServiceImpl service;
 
     @BeforeAll static void initializeTableMetadata() {
-        var builder = new org.apache.ibatis.builder.MapperBuilderAssistant(new org.apache.ibatis.session.Configuration(), "registration-unit-test");
+        var builder = new org.apache.ibatis.builder.MapperBuilderAssistant(new com.baomidou.mybatisplus.core.MybatisConfiguration(), "registration-unit-test");
         com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(builder, Registration.class);
     }
     @BeforeEach void setup() {

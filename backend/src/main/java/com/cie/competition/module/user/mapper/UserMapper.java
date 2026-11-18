@@ -10,7 +10,7 @@ public interface UserMapper extends BaseMapper<User> {
     com.cie.competition.module.user.vo.MajorVO lockMajor(Long id);
     @org.apache.ibatis.annotations.Select("SELECT * FROM sys_user WHERE id=#{id} FOR UPDATE")
     User lockById(Long id);
-    @org.apache.ibatis.annotations.Select("SELECT id, name FROM sys_major WHERE status = 1 ORDER BY id")
+    @org.apache.ibatis.annotations.Select("SELECT id, name, icon_code, logo_file_id FROM sys_major WHERE status = 1 ORDER BY id")
     java.util.List<com.cie.competition.module.user.vo.MajorVO> listMajors();
 
     @org.apache.ibatis.annotations.Select("SELECT COUNT(*) FROM guidance_quota q JOIN competition c ON c.id=q.competition_id WHERE q.teacher_id=#{teacherId} AND c.status NOT IN ('ENDED','CANCELLED')")

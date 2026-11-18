@@ -16,6 +16,11 @@ public class ContentDTO {
 
     private String content;
 
+    private java.time.LocalDateTime publishStartTime;
+    private java.time.LocalDateTime publishEndTime;
+    private java.time.LocalDateTime carouselStartTime;
+    private java.time.LocalDateTime carouselEndTime;
+
     private Long coverFileId;
     @jakarta.validation.constraints.Size(max=2048, message="官网地址不能超过2048个字符")
     private String officialUrl;

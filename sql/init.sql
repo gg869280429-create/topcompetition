@@ -11,6 +11,8 @@ USE `competition`;
 
 -- 专业表
 CREATE TABLE IF NOT EXISTS `sys_major` (
+    `icon_code` VARCHAR(32) DEFAULT NULL,
+    `logo_file_id` BIGINT DEFAULT NULL,
     `id`          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
     `name`        VARCHAR(64)  NOT NULL COMMENT '专业名称',
     `code`        VARCHAR(32)  DEFAULT NULL COMMENT '专业代码',
@@ -25,6 +27,7 @@ CREATE TABLE IF NOT EXISTS `sys_major` (
 
 -- 系统用户表
 CREATE TABLE IF NOT EXISTS `sys_user` (
+    `class_name` VARCHAR(64) DEFAULT NULL COMMENT '学生班级',
     `id`          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
     `username`    VARCHAR(64)  NOT NULL COMMENT '登录用户名',
     `password`    VARCHAR(128) NOT NULL COMMENT '密码（BCrypt 加密）',
@@ -41,6 +44,7 @@ CREATE TABLE IF NOT EXISTS `sys_user` (
     `update_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_username` (`username`),
+    KEY `idx_student_class` (`role`,`major_id`,`class_name`),
     KEY `idx_major_id` (`major_id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '系统用户表';
 
@@ -278,6 +282,10 @@ CREATE TABLE IF NOT EXISTS `participation_result` (
 
 -- 内容表（新闻 / 通知 / 公告）
 CREATE TABLE IF NOT EXISTS `content` (
+    `publish_start_time` DATETIME DEFAULT NULL,
+    `publish_end_time` DATETIME DEFAULT NULL,
+    `carousel_start_time` DATETIME DEFAULT NULL,
+    `carousel_end_time` DATETIME DEFAULT NULL,
     `id`             BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
     `title`          VARCHAR(128) NOT NULL COMMENT '标题',
     `content`        MEDIUMTEXT   COMMENT '正文（富文本）',
@@ -292,6 +300,7 @@ CREATE TABLE IF NOT EXISTS `content` (
     `view_count`     INT          NOT NULL DEFAULT 0 COMMENT '浏览次数',
     `create_time`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `update_time`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    KEY `idx_content_schedule` (`status`,`publish_start_time`,`publish_end_time`),
     PRIMARY KEY (`id`),
     KEY `idx_status` (`status`),
     KEY `idx_category` (`category`)
