@@ -31,6 +31,8 @@ public interface CompetitionService {
 
     void updateMajor(Long id, Long majorId);
 
+    void updateMajor(Long id, Long majorId, boolean allMajors);
+
     void delete(Long id);
 
     default void updateStatus(Long id, String status) { updateStatus(id, status, null); }

@@ -1,6 +1,6 @@
 import request from './request'
 
-export const updateCompetitionMajor = (id, majorId) => request.put(`/competition/${id}/major`, null, { params: { majorId } })
+export const updateCompetitionMajor = (id, majorId, allMajors = false) => request.put(`/competition/${id}/major`, null, { params: { majorId, allMajors } })
 
 export function pageCompetition(params) {
   return request.get('/competition/page', { params })
@@ -29,3 +29,5 @@ export function updateCompetitionStatus(id, status, reason) {
 export function publishCompetition(id, data) {
   return request.post(`/competition/${id}/publish`, data)
 }
+
+export const createCompetitionBatch = competitions => request.post('/competition/batch', { competitions })

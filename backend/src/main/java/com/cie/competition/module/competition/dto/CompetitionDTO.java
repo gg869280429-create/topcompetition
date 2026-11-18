@@ -16,6 +16,9 @@ public class CompetitionDTO {
 
     private Long majorId;
 
+    @NotNull(message = "请选择专业分类范围")
+    private Boolean allMajors = false;
+
     @NotBlank(message = "竞赛名称不能为空")
     @Size(max = 128, message = "竞赛名称长度不能超过128个字符")
     private String title;
@@ -61,5 +64,5 @@ public class CompetitionDTO {
     private Integer maxTeachers;
 
     /** 是否允许跨专业组队：1 是，0 否 */
-    private Integer allowCrossMajor;
+    private Integer allowCrossMajor = 1;
 }

@@ -1,9 +1,7 @@
-# 测试环境使用独立数据库和签名密钥，不复用生产凭据。
 spring:
   datasource:
-    url: ${TEST_DB_URL}
-    username: ${TEST_DB_USERNAME}
-    password: ${TEST_DB_PASSWORD}
-
+    url: 'jdbc:mysql://121.43.28.114:3306/competition-test?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true'
+    username: '	competition-test'
+    password: '123456'
 jwt:
-  secret: ${TEST_JWT_SECRET}
+  secret: 'BlxnH3BcpQQiOJENVHNBKVNyTz7jeBf1WnknTx1FioryDW067LPCD+5VHws1Kkx5uLW6PUaS+iHzrr91GKLfVw=='

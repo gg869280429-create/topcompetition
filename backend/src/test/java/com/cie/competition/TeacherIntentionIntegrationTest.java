@@ -410,6 +410,7 @@ class TeacherIntentionIntegrationTest extends IsolatedDatabaseTest {
 
     @Test
     void crossMajorIsCalculatedAndOwnedByLeaderMajor() {
+        jdbc.update("UPDATE competition SET allow_cross_major=0 WHERE id=?", competitionId);
         jdbc.update("UPDATE sys_user SET major_id=? WHERE id=?", majorId + 100000, otherStudent);
         UserContext.set(new LoginUser(student, "test", "STUDENT"));
         assertThrows(BusinessException.class, () -> registrations.create(registrationDto(List.of(otherStudent))));
@@ -604,6 +605,7 @@ class TeacherIntentionIntegrationTest extends IsolatedDatabaseTest {
 
     @Test
     void acceptedMembersAreRevalidatedAtFormalSubmission() {
+        jdbc.update("UPDATE competition SET allow_cross_major=0 WHERE id=?", competitionId);
         Long id = draft(otherStudent); accept(id, otherStudent);
         jdbc.update("UPDATE sys_user SET status=0 WHERE id=?", otherStudent);
         assertThrows(BusinessException.class, () -> submit(id));

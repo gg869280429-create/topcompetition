@@ -44,6 +44,12 @@ public class CompetitionController {
         return Result.success(managementService.save(null, dto));
     }
 
+    @PostMapping("/batch")
+    @PreAuthorize("hasAnyRole('ADMIN','MAJOR_ADMIN')")
+    public Result<java.util.List<Long>> createBatch(@Valid @RequestBody com.cie.competition.module.competition.dto.CompetitionBatchDTO dto) {
+        return Result.success(managementService.createBatch(dto));
+    }
+
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','MAJOR_ADMIN')")
     public Result<Void> update(@PathVariable Long id, @Valid @RequestBody CompetitionDTO dto) {
@@ -60,8 +66,8 @@ public class CompetitionController {
 
     @PutMapping("/{id}/major")
     @PreAuthorize("hasAnyRole('ADMIN','MAJOR_ADMIN')")
-    public Result<Void> updateMajor(@PathVariable Long id,@RequestParam Long majorId) {
-        competitionService.updateMajor(id,majorId);
+    public Result<Void> updateMajor(@PathVariable Long id,@RequestParam(required=false) Long majorId, @RequestParam(defaultValue="false") boolean allMajors) {
+        competitionService.updateMajor(id,majorId,allMajors);
         return Result.success();
     }
 

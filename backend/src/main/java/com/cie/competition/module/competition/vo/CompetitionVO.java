@@ -13,6 +13,8 @@ public class CompetitionVO {
     private Long id;
 
     private Long majorId;
+
+    private Boolean allMajors = false;
     private String majorName;
     private String majorIconCode;
     private Long majorLogoFileId;

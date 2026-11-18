@@ -32,7 +32,7 @@ class MigrationIntegrationTest extends IsolatedDatabaseTest {
         Map<String, Set<String>> additions = Map.of(
                 "sys_user", Set.of("token_version", "class_name"),
                 "sys_major", Set.of("icon_code", "logo_file_id"),
-                "competition", Set.of("manager_id", "cancellation_reason", "cancelled_at", "major_id"),
+                "competition", Set.of("manager_id", "cancellation_reason", "cancelled_at", "major_id", "all_majors"),
                 "registration", Set.of("leader_name_snapshot", "major_name_snapshot", "roster_locked_at", "roster_locked_by", "source_team_id"),
                 "registration_member", Set.of("active_key", "current_member", "name_snapshot", "major_id_snapshot", "major_name_snapshot"),
                 "guidance", Set.of("active_key", "ended_time", "end_reason", "members_snapshot"),
@@ -54,6 +54,7 @@ class MigrationIntegrationTest extends IsolatedDatabaseTest {
         schema = schema.replaceAll("(?m)^\\s*KEY `(?:idx_classification_major|idx_student_class|idx_content_schedule)`[^\\r\\n]*\\R", "");
         schema = schema.replaceAll("(?im)^CREATE DATABASE[^;]*;", "").replaceAll("(?im)^USE\\s+[^;]*;", "");
         schema = schema.replaceAll("(?im)^CREATE INDEX `?idx_(student_class|content_schedule)`?[^;]*;", "");
+        schema = schema.replaceAll("(`allow_cross_major`\\s+TINYINT\\s+NOT NULL DEFAULT) 1", "$1 0");
         String name = "competition_test_migration_" + UUID.randomUUID().toString().replace("-", "");
         try (Connection connection = dataSource.getConnection()) {
             String originalCatalog = connection.getCatalog();
@@ -95,6 +96,10 @@ class MigrationIntegrationTest extends IsolatedDatabaseTest {
                 execute(connection, Files.readString(root.resolve("migrations/20261112_05_teacher_roster.sql")));
                 execute(connection, Files.readString(root.resolve("migrations/20261112_06_student_team.sql")));
                 execute(connection, Files.readString(root.resolve("migrations/20261118_07_admin_panel.sql")));
+                execute(connection, Files.readString(root.resolve("migrations/20261118_08_competition_options.sql")));
+                try(var result=statement.executeQuery("SELECT all_majors,allow_cross_major FROM competition WHERE id=1")){assertTrue(result.next());assertEquals(0,result.getInt(1));assertEquals(0,result.getInt(2));}
+                statement.executeUpdate("INSERT INTO competition(title) VALUES('new-default-after-08')");
+                try(var result=statement.executeQuery("SELECT allow_cross_major FROM competition WHERE title='new-default-after-08'")){assertTrue(result.next());assertEquals(1,result.getInt(1));}
                 try(var result=statement.executeQuery("SELECT class_name,real_name FROM sys_user WHERE id=1")){assertTrue(result.next());assertNull(result.getString(1));assertEquals("原学生",result.getString(2));}
                 try(var result=statement.executeQuery("SELECT icon_code,logo_file_id,name FROM sys_major WHERE id=1")){assertTrue(result.next());assertNull(result.getString(1));assertNull(result.getObject(2));assertEquals("原专业",result.getString(3));}
                 try(var result=statement.executeQuery("SELECT source_team_id FROM registration WHERE id=1")){assertTrue(result.next());assertNull(result.getObject(1));}

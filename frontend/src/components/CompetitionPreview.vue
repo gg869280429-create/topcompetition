@@ -10,7 +10,7 @@
             <div class="comp-tags">
               <el-tag size="small" type="info"><MajorLabel :name="c.majorName" :major-id="c.majorId" :icon-code="c.majorIconCode" :logo-file-id="c.majorLogoFileId" /></el-tag>
               <el-tag size="small">{{ COMPETITION_LEVEL[c.level] || c.level }}</el-tag>
-              <el-tag size="small" type="info">{{ COMPETITION_TYPE[c.competitionType] || c.competitionType }}</el-tag>
+              <el-tag size="small" :type="c.competitionType === 'TEAM' ? 'primary' : 'success'">{{ COMPETITION_TYPE[c.competitionType] || c.competitionType }}</el-tag>
               <el-tag size="small" :type="statusTagType(c.status)">{{ COMPETITION_STATUS[c.status] || c.status }}</el-tag>
             </div>
             <div v-if="c.registrationStartTime || c.registrationEndTime" class="comp-time">

@@ -135,7 +135,7 @@ public class CompetitionServiceImpl implements CompetitionService {
         if (user == null || !Set.of("ADMIN", "MAJOR_ADMIN").contains(user.getRole()))
             throw new BusinessException(ResultCode.FORBIDDEN.getCode(), "无权创建竞赛");
         validateEnums(dto);
-        validateMajor(dto.getMajorId());
+        validateMajorSelection(dto.getMajorId(), Boolean.TRUE.equals(dto.getAllMajors()));
         validateManager(null, dto.getManagerId());
         fileService.validateAttachment(dto.getDocumentFileId());
         Competition competition = new Competition();
@@ -159,9 +159,9 @@ public class CompetitionServiceImpl implements CompetitionService {
         Competition before = new Competition();
         BeanUtils.copyProperties(competition, before);
         validateEnums(dto);
-        validateMajor(dto.getMajorId());
+        validateMajorSelection(dto.getMajorId(), Boolean.TRUE.equals(dto.getAllMajors()));
         validateManager(competition.getManagerId(), dto.getManagerId());
-        if (!"DRAFT".equals(competition.getStatus()) && dto.getMajorId() == null) throw new BusinessException("已发布竞赛必须选择所属专业");
+        if (!"DRAFT".equals(competition.getStatus()) && dto.getMajorId() == null && !Boolean.TRUE.equals(dto.getAllMajors())) throw new BusinessException("已发布竞赛必须选择所属专业");
         if (competitionMapper.countRegistrations(id) > 0
                 && (!Objects.equals(competition.getCompetitionType(), dto.getCompetitionType())
                 || !Objects.equals(competition.getAllowCrossMajor(), dto.getAllowCrossMajor())
@@ -192,15 +192,22 @@ public class CompetitionServiceImpl implements CompetitionService {
 
     @Override
     @Transactional
-    public void updateMajor(Long id, Long majorId) {
-        Competition competition=lockById(id);
+    public void updateMajor(Long id, Long majorId) { updateMajor(id,majorId,false); }
+
+    @Override
+    @Transactional
+    public void updateMajor(Long id, Long majorId, boolean allMajors) {
+        Competition competition = lockById(id);
         checkManagement(competition);
-        if (majorId==null) throw new BusinessException("请选择所属专业");
-        validateMajor(majorId);
-        Long before=competition.getMajorId();
+        if (majorId == null && !allMajors) throw new BusinessException("请选择所属专业或全部专业");
+        validateMajorSelection(majorId,allMajors);
+        Competition before = new Competition();
+        BeanUtils.copyProperties(competition,before);
         competition.setMajorId(majorId);
-        competitionMapper.updateById(competition);
-        history.record("COMPETITION",id,"MAJOR_CLASSIFIED",before,majorId,"维护展示分类");
+        competition.setAllMajors(allMajors);
+        competitionMapper.update(null,new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Competition>()
+                .eq(Competition::getId,id).set(Competition::getMajorId,majorId).set(Competition::getAllMajors,allMajors));
+        history.record("COMPETITION",id,"MAJOR_CLASSIFIED",before,competition,"维护展示分类");
     }
 
     @Override
@@ -228,7 +235,7 @@ public class CompetitionServiceImpl implements CompetitionService {
             if (current < 0 || current + 1 >= sequence.size() || !sequence.get(current + 1).equals(status))
                 throw new BusinessException("竞赛状态必须按草稿、报名中、进行中、已结束顺序流转");
             if ("REGISTERING".equals(status)) {
-                if (competition.getMajorId() == null) throw new BusinessException("发布前请选择所属专业");
+                if (competition.getMajorId() == null && !Boolean.TRUE.equals(competition.getAllMajors())) throw new BusinessException("发布前请选择所属专业或全部专业");
                 validateMajor(competition.getMajorId());
                 validateWindow(competition.getRegistrationStartTime(), competition.getRegistrationEndTime());
                 if (!hasTeacherQuota(id)) throw new BusinessException("发布前请至少配置一位启用教师及指导名额");
@@ -239,6 +246,11 @@ public class CompetitionServiceImpl implements CompetitionService {
         history.record("COMPETITION", id, "STATUS_CHANGED", before, competition, reason);
         if ("CANCELLED".equals(status)) for (Long participant : competitionMapper.listParticipantIds(id))
             messageService.sendBusinessMessage(participant, "竞赛取消通知", "竞赛「" + competition.getTitle() + "」已取消：" + competition.getCancellationReason(), "NOTICE", "COMPETITION", id);
+    }
+
+    private void validateMajorSelection(Long majorId, boolean allMajors) {
+        if (allMajors && majorId != null) throw new BusinessException("选择全部专业时不能同时指定单个专业");
+        validateMajor(majorId);
     }
 
     private void validateMajor(Long id) {
@@ -292,7 +304,8 @@ public class CompetitionServiceImpl implements CompetitionService {
     private CompetitionVO toVO(Competition competition) {
         CompetitionVO vo = new CompetitionVO();
         BeanUtils.copyProperties(competition, vo);
-        if (competition.getMajorId() != null) {
+        if (Boolean.TRUE.equals(competition.getAllMajors())) vo.setMajorName("全部专业");
+        else if (competition.getMajorId() != null) {
             var names = jdbc.queryForList("SELECT name,icon_code,logo_file_id FROM sys_major WHERE id=?", competition.getMajorId());
             if(!names.isEmpty()) {
                 var major=names.get(0);vo.setMajorName((String)major.get("name"));vo.setMajorIconCode((String)major.get("icon_code"));

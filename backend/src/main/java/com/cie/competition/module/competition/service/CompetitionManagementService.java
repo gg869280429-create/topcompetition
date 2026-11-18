@@ -39,6 +39,17 @@ public class CompetitionManagementService {
     }
 
     @Transactional
+    public java.util.List<Long> createBatch(com.cie.competition.module.competition.dto.CompetitionBatchDTO dto) {
+        var types = new java.util.HashSet<String>();
+        for (var item : dto.getCompetitions()) {
+            if (!types.add(item.getCompetitionType())) throw new BusinessException("同一批次不能重复选择相同赛制");
+        }
+        var ids = new java.util.ArrayList<Long>();
+        for (var item : dto.getCompetitions()) ids.add(save(null, item));
+        return ids;
+    }
+
+    @Transactional
     public Long save(Long id, CompetitionDTO dto) {
         if (dto.getTeachers() == null || dto.getTeachers().isEmpty()) throw new BusinessException("至少配置一位指导老师");
         var teachers = new TreeMap<Long, CompetitionTeacherDTO>();

@@ -19,6 +19,8 @@ public class Competition {
 
     private Long majorId;
 
+    private Boolean allMajors = false;
+
     private String title;
 
     /** 赛制：PERSONAL 个人赛 / TEAM 团队赛 */
