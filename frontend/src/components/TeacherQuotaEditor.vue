@@ -1,13 +1,15 @@
 <template>
  <section v-loading="loading"><h3>竞赛指导名额</h3>
  <p class="quota-tip">名额按团队计算，不能低于正在指导的团队数。每行单独保存。</p>
- <el-table :data="rows" border>
-  <el-table-column prop="competitionTitle" label="竞赛" min-width="150"/>
-  <el-table-column prop="assigned" label="正在指导" width="85"/>
-  <el-table-column prop="remaining" label="剩余" width="65"/>
-  <el-table-column label="总名额" width="150"><template #default="{row}"><el-input-number v-model="row.quota" :min="row.assigned" :max="10000" :disabled="closed(row) || saving" controls-position="right" style="width:125px" /></template></el-table-column>
-  <el-table-column label="操作" width="80"><template #default="{row}"><el-button link type="primary" :disabled="closed(row) || saving" @click="save(row)">保存名额</el-button></template></el-table-column>
- </el-table>
+ <PaginatedList :items="rows" :reset-key="teacherId" v-slot="{ items }">
+   <el-table :data="items" border>
+    <el-table-column prop="competitionTitle" label="竞赛" min-width="150"/>
+    <el-table-column prop="assigned" label="正在指导" width="85"/>
+    <el-table-column prop="remaining" label="剩余" width="65"/>
+    <el-table-column label="总名额" width="150"><template #default="{row}"><el-input-number v-model="row.quota" :min="row.assigned" :max="10000" :disabled="closed(row) || saving" controls-position="right" style="width:125px" /></template></el-table-column>
+    <el-table-column label="操作" width="80"><template #default="{row}"><el-button link type="primary" :disabled="closed(row) || saving" @click="save(row)">保存名额</el-button></template></el-table-column>
+   </el-table>
+ </PaginatedList>
  <el-form inline class="quota-add" @submit.prevent="add">
   <el-form-item label="新增竞赛"><el-select v-model="addition.competitionId" filterable remote :remote-method="searchCompetitions" @visible-change="v=>v && searchCompetitions('')" placeholder="搜索竞赛" style="width:220px"><el-option v-for="c in competitions" :key="c.id" :value="c.id" :label="c.title" /></el-select></el-form-item>
   <el-form-item label="总名额"><el-input-number v-model="addition.quota" :min="0" :max="10000" controls-position="right" style="width:125px" /></el-form-item>
@@ -16,6 +18,7 @@
  </section>
 </template>
 <script setup>
+import PaginatedList from '@/components/PaginatedList.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { teacherQuotaDetails, saveQuota } from '@/api/guidance'

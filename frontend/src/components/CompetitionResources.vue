@@ -5,15 +5,18 @@
     <span v-else>暂未上传</span>
     <div class="resource-title">{{ isTeacher ? '我的指导信息' : '竞赛指导老师' }}</div>
     <el-empty v-if="!loading && !teachers.length" :description="isTeacher ? '暂无本人指导信息' : '暂未配置指导老师'" :image-size="50" />
-    <div v-for="t in teachers" :key="t.teacherId" class="teacher">
-      <div><strong>{{ t.teacherName }}</strong> · {{ t.majorName || '专业未设置' }} · 剩余 {{ t.remaining }} / {{ t.quota }} 个团队名额</div>
-      <div>擅长方向：{{ t.expertise || '暂未填写' }}</div>
-      <div v-if="t.biography" class="biography">{{ t.biography }}</div>
-    </div>
+    <PaginatedList :items="teachers" :reset-key="competition.id" v-slot="{ items }">
+      <div v-for="t in items" :key="t.teacherId" class="teacher">
+        <div><strong>{{ t.teacherName }}</strong> · {{ t.majorName || '专业未设置' }} · 剩余 {{ t.remaining }} / {{ t.quota }} 个团队名额</div>
+        <div>擅长方向：{{ t.expertise || '暂未填写' }}</div>
+        <div v-if="t.biography" class="biography">{{ t.biography }}</div>
+      </div>
+    </PaginatedList>
   </div>
 </template>
 
 <script setup>
+import PaginatedList from '@/components/PaginatedList.vue'
 import { ref, watch, computed } from 'vue'
 import { useUserStore } from '@/store/user'
 import { competitionTeachers } from '@/api/guidance'

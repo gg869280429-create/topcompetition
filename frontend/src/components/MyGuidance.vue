@@ -47,18 +47,21 @@
       </div>
       <h3>个人明细</h3>
       <p class="tip-text">共 {{ studentResults.length }} 人，已登记参赛 {{ studentResults.filter(s => s.participated).length }} 人，已登记获奖 {{ studentResults.filter(s => s.participated && s.won).length }} 人。{{ resultRosterLocked ? '参赛名单已锁定。' : '确认参赛后将锁定名单，队长不能再调整队员。' }}</p>
-      <el-table v-loading="resultSaving" :data="studentResults" style="margin-top:16px">
-        <el-table-column prop="name" label="学生" min-width="100" />
-        <el-table-column label="是否参赛" width="130"><template #default="{row}"><el-select v-model="row.participated" @change="!row.participated && (row.won = false)"><el-option label="参赛" :value="true"/><el-option label="未参赛" :value="false"/></el-select></template></el-table-column>
-        <el-table-column label="是否获奖" width="130"><template #default="{row}"><el-select v-if="row.participated" v-model="row.won"><el-option label="获奖" :value="true"/><el-option label="未获奖" :value="false"/></el-select><span v-else>—</span></template></el-table-column>
-        <el-table-column label="备注" min-width="160"><template #default="{row}"><el-input v-model="row.remark" maxlength="1000"/></template></el-table-column>
-        <el-table-column label="操作" width="80"><template #default="{row}"><el-button link type="primary" :disabled="row.participated == null || (row.participated && row.won == null)" @click="saveResult(row)">保存</el-button></template></el-table-column>
-      </el-table>
+      <PaginatedList :items="studentResults" :reset-key="resultsVisible + ':' + resultGuidanceId" v-slot="{ items }">
+        <el-table v-loading="resultSaving" :data="items" style="margin-top:16px">
+          <el-table-column prop="name" label="学生" min-width="100" />
+          <el-table-column label="是否参赛" width="130"><template #default="{row}"><el-select v-model="row.participated" @change="!row.participated && (row.won = false)"><el-option label="参赛" :value="true"/><el-option label="未参赛" :value="false"/></el-select></template></el-table-column>
+          <el-table-column label="是否获奖" width="130"><template #default="{row}"><el-select v-if="row.participated" v-model="row.won"><el-option label="获奖" :value="true"/><el-option label="未获奖" :value="false"/></el-select><span v-else>—</span></template></el-table-column>
+          <el-table-column label="备注" min-width="160"><template #default="{row}"><el-input v-model="row.remark" maxlength="1000"/></template></el-table-column>
+          <el-table-column label="操作" width="80"><template #default="{row}"><el-button link type="primary" :disabled="row.participated == null || (row.participated && row.won == null)" @click="saveResult(row)">保存</el-button></template></el-table-column>
+        </el-table>
+      </PaginatedList>
       <template #footer><el-button :disabled="resultSaving" @click="resultsVisible=false">关闭</el-button><el-button type="primary" :disabled="resultSaving" @click="resultsVisible=false; router.push('/award')">前往成果申报</el-button></template>
     </el-dialog>
 </div>
 </template>
 <script setup>
+import PaginatedList from '@/components/PaginatedList.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'

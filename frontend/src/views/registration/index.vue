@@ -11,15 +11,17 @@
     <PageContainer v-if="isStudent && invitations.length">
       <h3>我的团队邀请</h3>
       <p>首次报名接受邀请后由队长正式提交；已通过报名接受邀请后直接加入。待确认邀请不占用参赛资格。</p>
-      <el-table :data="invitations" border>
-        <el-table-column prop="registrationId" label="报名编号" />
-        <el-table-column prop="competitionTitle" label="竞赛" /><el-table-column prop="teamName" label="团队" /><el-table-column prop="inviterName" label="邀请人" />
-        <el-table-column prop="status" label="邀请状态" />
-        <el-table-column label="操作"><template #default="{ row }">
-          <el-button v-if="row.status === 'PENDING'" link type="success" @click="respond(row, true)">接受</el-button>
-          <el-button v-if="row.status === 'PENDING'" link type="danger" @click="respond(row, false)">拒绝</el-button>
-        </template></el-table-column>
-      </el-table>
+      <PaginatedList :items="invitations" v-slot="{ items }">
+        <el-table :data="items" border>
+          <el-table-column prop="registrationId" label="报名编号" />
+          <el-table-column prop="competitionTitle" label="竞赛" /><el-table-column prop="teamName" label="团队" /><el-table-column prop="inviterName" label="邀请人" />
+          <el-table-column prop="status" label="邀请状态" />
+          <el-table-column label="操作"><template #default="{ row }">
+            <el-button v-if="row.status === 'PENDING'" link type="success" @click="respond(row, true)">接受</el-button>
+            <el-button v-if="row.status === 'PENDING'" link type="danger" @click="respond(row, false)">拒绝</el-button>
+          </template></el-table-column>
+        </el-table>
+      </PaginatedList>
     </PageContainer>
     <PageContainer v-if="!isTeacher">
       <el-form :inline="true" :model="query" class="search-form" @submit.prevent>
@@ -179,33 +181,41 @@
         <el-descriptions-item v-if="detail.reviewTime" label="审核时间" :span="2">{{ detail.reviewTime }}</el-descriptions-item>
         <el-descriptions-item v-if="detail.reviewComment" label="审核意见" :span="2">{{ detail.reviewComment }}</el-descriptions-item>
         <el-descriptions-item label="团队成员" :span="2">
-          <div v-for="m in detail.members" :key="m.userId" class="member-row">
-            <span>{{ m.name }}</span>
-            <el-tag v-if="m.memberRole === 'LEADER'" size="small" type="primary">队长</el-tag>
-          </div>
+          <PaginatedList :items="detail.members || []" :reset-key="detailVisible + ':' + detail.id" v-slot="{ items }">
+            <div v-for="m in items" :key="m.userId" class="member-row">
+              <span>{{ m.name }}</span>
+              <el-tag v-if="m.memberRole === 'LEADER'" size="small" type="primary">队长</el-tag>
+            </div>
+          </PaginatedList>
         </el-descriptions-item>
       </el-descriptions>
       <h3>成员邀请记录</h3>
-      <el-table :data="workflow.invitations || []" border>
-        <el-table-column prop="inviteeId" label="成员编号" /><el-table-column prop="status" label="状态" />
-        <el-table-column label="操作"><template #default="{ row }">
-          <el-button v-if="isStudent && detail.leaderId === currentUserId && ((detail.status === 'DRAFT' && ['PENDING','ACCEPTED','REJECTED'].includes(row.status)) || (detail.canAdjustMembers && ['PENDING','REJECTED'].includes(row.status)))" link type="danger" @click="revoke(row)">撤销</el-button>
-        </template></el-table-column>
-      </el-table>
+      <PaginatedList :items="workflow.invitations || []" :reset-key="detailVisible + ':' + detail.id" v-slot="{ items }">
+        <el-table :data="items" border>
+          <el-table-column prop="inviteeId" label="成员编号" /><el-table-column prop="status" label="状态" />
+          <el-table-column label="操作"><template #default="{ row }">
+            <el-button v-if="isStudent && detail.leaderId === currentUserId && ((detail.status === 'DRAFT' && ['PENDING','ACCEPTED','REJECTED'].includes(row.status)) || (detail.canAdjustMembers && ['PENDING','REJECTED'].includes(row.status)))" link type="danger" @click="revoke(row)">撤销</el-button>
+          </template></el-table-column>
+        </el-table>
+      </PaginatedList>
       <h3>退赛申请</h3>
-      <el-table :data="workflow.withdrawals || []" border>
-        <el-table-column prop="reason" label="原因" /><el-table-column prop="status" label="状态" /><el-table-column prop="reviewComment" label="审核意见" />
-        <el-table-column v-if="isAdmin" label="操作"><template #default="{ row }">
-          <el-button v-if="row.status === 'PENDING'" link type="success" @click="withdrawalReview(row, 'APPROVED')">批准</el-button>
-          <el-button v-if="row.status === 'PENDING'" link type="danger" @click="withdrawalReview(row, 'REJECTED')">驳回</el-button>
-        </template></el-table-column>
-      </el-table>
+      <PaginatedList :items="workflow.withdrawals || []" :reset-key="detailVisible + ':' + detail.id" v-slot="{ items }">
+        <el-table :data="items" border>
+          <el-table-column prop="reason" label="原因" /><el-table-column prop="status" label="状态" /><el-table-column prop="reviewComment" label="审核意见" />
+          <el-table-column v-if="isAdmin" label="操作"><template #default="{ row }">
+            <el-button v-if="row.status === 'PENDING'" link type="success" @click="withdrawalReview(row, 'APPROVED')">批准</el-button>
+            <el-button v-if="row.status === 'PENDING'" link type="danger" @click="withdrawalReview(row, 'REJECTED')">驳回</el-button>
+          </template></el-table-column>
+        </el-table>
+      </PaginatedList>
       <h3>报名及审核历史</h3>
-      <el-table :data="workflow.history || []" border>
-        <el-table-column prop="operation" label="操作" /><el-table-column prop="reason" label="原因" /><el-table-column prop="operationTime" label="时间" />
-        <el-table-column label="记录"><template #default="{ row }"><el-popover width="500" trigger="click"><template #reference><el-button link>查看快照</el-button></template><pre style="max-height:300px;overflow:auto;white-space:pre-wrap">{{ row.beforeJson || row.beforeSnapshot }}
+      <PaginatedList :items="workflow.history || []" :reset-key="detailVisible + ':' + detail.id" v-slot="{ items }">
+        <el-table :data="items" border>
+          <el-table-column prop="operation" label="操作" /><el-table-column prop="reason" label="原因" /><el-table-column prop="operationTime" label="时间" />
+          <el-table-column label="记录"><template #default="{ row }"><el-popover width="500" trigger="click"><template #reference><el-button link>查看快照</el-button></template><pre style="max-height:300px;overflow:auto;white-space:pre-wrap">{{ row.beforeJson || row.beforeSnapshot }}
 {{ row.afterJson || row.afterSnapshot }}</pre></el-popover></template></el-table-column>
-      </el-table>
+        </el-table>
+      </PaginatedList>
     </el-dialog>
 
     <el-dialog v-model="assignmentVisible" title="选择指导老师" width="540px" :close-on-click-modal="false" :close-on-press-escape="!assignmentSaving" :show-close="!assignmentSaving" @closed="assignmentVersion++">
@@ -261,6 +271,7 @@
 </template>
 
 <script setup>
+import PaginatedList from '@/components/PaginatedList.vue'
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'

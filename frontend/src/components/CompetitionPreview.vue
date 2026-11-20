@@ -5,45 +5,59 @@
       <el-empty v-if="!loading && list.length === 0" description="暂无竞赛信息" />
       <el-row v-else :gutter="16">
         <el-col v-for="c in list" :key="c.id" :xs="24" :sm="12" :md="8" :lg="6">
-          <el-card class="comp-card" shadow="hover">
-            <div class="comp-title">{{ c.title }}</div>
-            <div class="comp-tags">
-              <el-tag size="small" type="info"><MajorLabel :name="c.majorName" :major-id="c.majorId" :icon-code="c.majorIconCode" :logo-file-id="c.majorLogoFileId" /></el-tag>
-              <el-tag size="small">{{ COMPETITION_LEVEL[c.level] || c.level }}</el-tag>
-              <el-tag size="small" :type="c.competitionType === 'TEAM' ? 'primary' : 'success'">{{ COMPETITION_TYPE[c.competitionType] || c.competitionType }}</el-tag>
-              <el-tag size="small" :type="statusTagType(c.status)">{{ COMPETITION_STATUS[c.status] || c.status }}</el-tag>
+          <el-popover
+            trigger="hover"
+            placement="right-start"
+            :width="600"
+            :show-after="2000"
+            :hide-after="400"
+            :enterable="true"
+            :disabled="detailVisible"
+            :popper-style="{ maxWidth: 'calc(100vw - 32px)' }"
+            @before-enter="loadHoverDetail(c)"
+          >
+            <template #reference>
+              <el-card class="comp-card" shadow="hover">
+                <div class="comp-title">{{ c.title }}</div>
+                <div class="comp-tags">
+                  <el-tag size="small" type="info"><MajorLabel :name="c.majorName" :major-id="c.majorId" :icon-code="c.majorIconCode" :logo-file-id="c.majorLogoFileId" /></el-tag>
+                  <el-tag size="small">{{ COMPETITION_LEVEL[c.level] || c.level }}</el-tag>
+                  <el-tag size="small" :type="c.competitionType === 'TEAM' ? 'primary' : 'success'">{{ COMPETITION_TYPE[c.competitionType] || c.competitionType }}</el-tag>
+                  <el-tag size="small" :type="statusTagType(c.status)">{{ COMPETITION_STATUS[c.status] || c.status }}</el-tag>
+                </div>
+                <div class="comp-time">
+                  报名：{{ c.registrationStartTime || '-' }} ~ {{ c.registrationEndTime || '-' }}
+                </div>
+                <div class="comp-desc">{{ c.description || '暂无简介' }}</div>
+                <div class="comp-actions">
+                  <el-button size="small" @click="openDetail(c)">详情</el-button>
+                  <el-button v-if="canManage(c)" size="small" :disabled="['ENDED','CANCELLED'].includes(c.status)" @click="router.push({path:'/competition',query:{edit:c.id,open:Date.now()}})">编辑</el-button>
+                  <el-button v-if="canManage(c)" size="small" type="danger" :disabled="['ENDED','CANCELLED'].includes(c.status)" @click="cancelCompetition(c)">取消竞赛</el-button>
+                  <el-button v-if="isStudent && c.status === 'REGISTERING'" size="small" type="success" @click="goApply(c)">报名参赛</el-button>
+                </div>
+              </el-card>
+            </template>
+            <div v-if="hoverDetail.id === c.id" class="comp-hover-detail">
+              <h3 class="comp-hover-heading">竞赛详情</h3>
+              <CompetitionDetailContent :competition="hoverDetail" />
             </div>
-            <div v-if="c.registrationStartTime || c.registrationEndTime" class="comp-time">
-              报名：{{ c.registrationStartTime || '-' }} ~ {{ c.registrationEndTime || '-' }}
-            </div>
-            <div class="comp-desc">{{ c.description || '暂无简介' }}</div>
-            <div class="comp-actions">
-              <el-button size="small" @click="openDetail(c)">详情</el-button>
-              <el-button v-if="canManage(c)" size="small" :disabled="['ENDED','CANCELLED'].includes(c.status)" @click="router.push({path:'/competition',query:{edit:c.id,open:Date.now()}})">编辑</el-button>
-              <el-button v-if="canManage(c)" size="small" type="danger" :disabled="['ENDED','CANCELLED'].includes(c.status)" @click="cancelCompetition(c)">取消竞赛</el-button>
-              <el-button v-if="isStudent && c.status === 'REGISTERING'" size="small" type="success" @click="goApply(c)">报名参赛</el-button>
-            </div>
-          </el-card>
+          </el-popover>
         </el-col>
       </el-row>
+      <el-pagination
+        v-model:current-page="query.current"
+        :page-size="query.size"
+        :total="total"
+        :page-sizes="[12, 24, 48]"
+        :pager-count="5"
+        layout="total, sizes, prev, pager, next, jumper"
+        @update:page-size="changePageSize"
+        @change="fetchList"
+      />
     </PageContainer>
 
     <el-dialog v-model="detailVisible" title="竞赛详情" width="600px">
-      <el-descriptions class="competition-detail" :column="2" border>
-        <el-descriptions-item label="竞赛名称" :span="2">{{ detail.title }}</el-descriptions-item>
-        <el-descriptions-item label="赛制">{{ COMPETITION_TYPE[detail.competitionType] || detail.competitionType }}</el-descriptions-item>
-        <el-descriptions-item label="级别">{{ COMPETITION_LEVEL[detail.level] || detail.level }}</el-descriptions-item>
-        <el-descriptions-item label="所属专业"><MajorLabel :name="detail.majorName" :major-id="detail.majorId" :icon-code="detail.majorIconCode" :logo-file-id="detail.majorLogoFileId" placeholder="待补录" /></el-descriptions-item>
-        <el-descriptions-item label="学科类别">{{ detail.category || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="主办单位">{{ detail.organizer || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="团队人数上限">{{ detail.maxMembers }}</el-descriptions-item>
-        <el-descriptions-item label="状态">{{ COMPETITION_STATUS[detail.status] || detail.status }}</el-descriptions-item>
-        <el-descriptions-item label="报名时间" :span="2">
-          {{ (detail.registrationStartTime || '-') + ' ~ ' + (detail.registrationEndTime || '-') }}
-        </el-descriptions-item>
-        <el-descriptions-item label="竞赛简介" :span="2">{{ detail.description || '-' }}</el-descriptions-item>
-      </el-descriptions>
-      <CompetitionResources v-if="detailVisible" :competition="detail" />
+      <CompetitionDetailContent v-if="detailVisible" :competition="detail" />
     </el-dialog>
 
 
@@ -52,14 +66,14 @@
 
 <script setup>
 import MajorLabel from '@/components/MajorLabel.vue'
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import { useUserStore } from '@/store/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { updateCompetitionStatus, pageCompetition, getCompetition } from '@/api/competition'
-import CompetitionResources from '@/components/CompetitionResources.vue'
+import CompetitionDetailContent from '@/components/CompetitionDetailContent.vue'
 import { COMPETITION_TYPE, COMPETITION_LEVEL, COMPETITION_STATUS } from '@/constants/dict'
 
 defineProps({ title: { type: String, default: '竞赛预览' } })
@@ -71,9 +85,23 @@ const isStudent = computed(() => userStore.role === 'STUDENT')
 
 const loading = ref(false)
 const list = ref([])
+const total = ref(0)
+const query = reactive({ current: 1, size: 12 })
+
+function changePageSize(size) {
+  query.size = size
+  query.current = 1
+}
 
 const detailVisible = ref(false)
 const detail = ref({})
+const hoverDetail = ref({})
+
+async function loadHoverDetail(c) {
+  hoverDetail.value = c
+  const res = await getCompetition(c.id)
+  if (hoverDetail.value.id === c.id) hoverDetail.value = res.data
+}
 
 function canManage(c) { return userStore.role === 'ADMIN' || (userStore.role === 'MAJOR_ADMIN' && (c.publisherId === userStore.userInfo?.id || c.managerId === userStore.userInfo?.id)) }
 async function cancelCompetition(c) {
@@ -92,8 +120,9 @@ function statusTagType(status) {
 async function fetchList() {
   loading.value = true
   try {
-    const res = await pageCompetition({ current: 1, size: 100 })
+    const res = await pageCompetition(query)
     list.value = res.data.records
+    total.value = res.data.total
   } finally {
     loading.value = false
   }
@@ -114,13 +143,32 @@ onMounted(fetchList)
 </script>
 
 <style scoped>
-.competition-detail :deep(.el-descriptions__label) {
-  width: 112px;
-  white-space: nowrap;
+.el-pagination {
+  margin-top: 16px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px 0;
 }
 
 .comp-card {
+  height: 280px;
   margin-bottom: var(--spacing-md);
+}
+
+.comp-card :deep(.el-card__body) {
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.comp-title,
+.comp-time,
+.comp-desc {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
 }
 
 .comp-title {
@@ -128,43 +176,68 @@ onMounted(fetchList)
   font-weight: 600;
   margin-bottom: var(--spacing-sm);
   line-height: 1.4;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
 }
 
 .comp-tags {
   display: flex;
   flex-wrap: wrap;
   gap: var(--spacing-xs);
+  height: 48px;
+  flex-shrink: 0;
+  align-content: flex-start;
+  overflow: hidden;
   margin-bottom: var(--spacing-sm);
+}
+
+.comp-tags :deep(.el-tag) {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.comp-tags :deep(.el-tag__content),
+.comp-tags :deep(.major-label > span) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .comp-time {
   font-size: var(--font-size-small);
   color: var(--color-text-secondary);
+  line-height: 1.5;
   margin-bottom: var(--spacing-sm);
 }
 
 .comp-desc {
   font-size: var(--font-size-small);
   color: var(--color-text-secondary);
-  height: 36px;
   line-height: 1.5;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
   margin-bottom: var(--spacing-sm);
 }
 
 .comp-actions {
+  margin-top: auto;
+  min-height: 56px;
+  align-content: flex-end;
   display: flex;
   gap: var(--spacing-xs);
   flex-wrap: wrap;
+}
+
+.comp-actions :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+
+.comp-hover-detail {
+  max-height: min(60vh, 560px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.comp-hover-heading {
+  margin: 0 0 12px;
+  font-size: var(--font-size-large);
+  color: var(--color-text-primary);
 }
 
 </style>
