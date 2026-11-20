@@ -3,8 +3,8 @@
     <div class="resource-title">竞赛文件</div>
     <el-button v-if="competition.documentFileId" link type="primary" :loading="downloading" @click="download">{{ competition.documentName || '下载竞赛文件' }}</el-button>
     <span v-else>暂未上传</span>
-    <div class="resource-title">竞赛指导老师</div>
-    <el-empty v-if="!loading && !teachers.length" description="暂未配置指导老师" :image-size="50" />
+    <div class="resource-title">{{ isTeacher ? '我的指导信息' : '竞赛指导老师' }}</div>
+    <el-empty v-if="!loading && !teachers.length" :description="isTeacher ? '暂无本人指导信息' : '暂未配置指导老师'" :image-size="50" />
     <div v-for="t in teachers" :key="t.teacherId" class="teacher">
       <div><strong>{{ t.teacherName }}</strong> · {{ t.majorName || '专业未设置' }} · 剩余 {{ t.remaining }} / {{ t.quota }} 个团队名额</div>
       <div>擅长方向：{{ t.expertise || '暂未填写' }}</div>
@@ -14,10 +14,13 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
+import { useUserStore } from '@/store/user'
 import { competitionTeachers } from '@/api/guidance'
 import { downloadCompetitionDocument } from '@/api/file'
 const props = defineProps({ competition: { type: Object, required: true } })
+const userStore = useUserStore()
+const isTeacher = computed(() => userStore.role === 'TEACHER')
 const loading = ref(false)
 const downloading = ref(false)
 const teachers = ref([])

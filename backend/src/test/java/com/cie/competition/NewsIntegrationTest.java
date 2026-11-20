@@ -57,4 +57,40 @@ class NewsIntegrationTest extends IsolatedDatabaseTest {
    var result=json.readTree(mvc.perform(multipart("/api/file/award-material").file(new MockMultipartFile("file","proof.pdf","application/pdf","%PDF-test".getBytes())).param("bizType",type).header("Authorization","Bearer "+teacher)).andReturn().getResponse().getContentAsString());assertEquals(400,result.path("code").asInt());
   }
  }
+ long uploadCover(String admin,String name)throws Exception{
+  byte[] image=java.util.Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5WQAAAAASUVORK5CYII=");
+  var result=json.readTree(mvc.perform(multipart("/api/file/content-cover").file(new MockMultipartFile("file",name,"image/png",image)).header("Authorization","Bearer "+admin)).andReturn().getResponse().getContentAsString());
+  assertEquals(200,result.path("code").asInt());long id=result.path("data").path("id").asLong();createdFiles.add(jdbc.queryForObject("SELECT storage_name FROM sys_file WHERE id=?",String.class,id));return id;
+ }
+ @Test void publishedNewsCanReplaceHomepageCoverUsingTheNewsUpdateEndpoint()throws Exception{
+  String admin=token("ADMIN"),student=token("STUDENT"),teacher=token("TEACHER");
+  long original=uploadCover(admin,"original.png"),replacement=uploadCover(admin,"replacement.png");
+  var body=new HashMap<String,Object>(Map.of("title","Replace homepage cover","category","NEWS","officialUrl","https://example.org/contest","carouselEnabled",true,"coverFileId",original));
+  long id=request("POST","/content",admin,body,200).asLong();request("PUT","/content/"+id+"/status?status=PUBLISHED",admin,null,200);
+  var publishTime=jdbc.queryForObject("SELECT publish_time FROM content WHERE id=?",java.sql.Timestamp.class,id);
+  body.put("coverFileId",replacement);body.put("sortOrder",3);
+  request("PUT","/content/"+id,admin,body,200);
+  assertEquals("PUBLISHED",jdbc.queryForObject("SELECT status FROM content WHERE id=?",String.class,id));
+  assertEquals(publishTime,jdbc.queryForObject("SELECT publish_time FROM content WHERE id=?",java.sql.Timestamp.class,id));
+  assertEquals(replacement,request("GET","/content/"+id,student,null,200).path("coverFileId").asLong());
+  assertTrue(java.util.stream.StreamSupport.stream(request("GET","/content/carousel",student,null,200).spliterator(),false).anyMatch(n->n.path("id").asLong()==id&&n.path("coverFileId").asLong()==replacement));
+  assertEquals("image/png",mvc.perform(get("/api/content/"+id+"/cover").header("Authorization","Bearer "+student)).andReturn().getResponse().getContentType());
+  body.put("coverFileId",original);request("PUT","/content/"+id,teacher,body,403);
+  body.put("officialUrl","");request("PUT","/content/"+id,admin,body,400);
+  body.put("officialUrl","https://example.org/contest");body.put("coverFileId",null);request("PUT","/content/"+id,admin,body,400);
+  assertEquals(replacement,jdbc.queryForObject("SELECT cover_file_id FROM content WHERE id=?",Long.class,id));
+ }
+ @Test void editingActiveNewsRevalidatesPublicationWindows()throws Exception{
+  String admin=token("ADMIN"),student=token("STUDENT");
+  var body=new HashMap<String,Object>(Map.of("title","Scheduled update","category","NEWS","officialUrl","https://example.org/contest"));
+  long id=request("POST","/content",admin,body,200).asLong();request("PUT","/content/"+id+"/status?status=PUBLISHED",admin,null,200);
+  var format=java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+  body.put("publishStartTime",java.time.LocalDateTime.now().plusDays(1).format(format));
+  request("PUT","/content/"+id,admin,body,200);assertEquals("SCHEDULED",jdbc.queryForObject("SELECT status FROM content WHERE id=?",String.class,id));
+  request("GET","/content/"+id,student,null,403);
+  body.put("title","Rescheduled news");request("PUT","/content/"+id,admin,body,200);
+  body.put("publishStartTime",null);body.put("publishEndTime",java.time.LocalDateTime.now().minusMinutes(1).format(format));
+  request("PUT","/content/"+id,admin,body,400);assertEquals("SCHEDULED",jdbc.queryForObject("SELECT status FROM content WHERE id=?",String.class,id));
+  body.put("publishEndTime",null);request("PUT","/content/"+id,admin,body,200);assertEquals("PUBLISHED",jdbc.queryForObject("SELECT status FROM content WHERE id=?",String.class,id));
+ }
 }

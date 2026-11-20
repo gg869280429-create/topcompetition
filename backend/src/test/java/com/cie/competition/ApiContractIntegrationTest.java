@@ -241,6 +241,47 @@ class ApiContractIntegrationTest extends IsolatedDatabaseTest {
         assertNotNull(response.getHeader("Content-Disposition"));
     }
 
+    @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void competitionPublishesAnExistingNewsDraftAndCanRetryWithoutDuplicatingNews() throws Exception {
+        var admin = actor("ADMIN"); var teacher = actor("TEACHER");
+        long cid = call("POST", "/competition", admin.token(), competitionBody(teacher.id(), null), 200).asLong();
+        var body = new java.util.HashMap<String,Object>(Map.of("title", "共享新闻编辑器", "category", "NEWS"));
+        long id = call("POST", "/content", admin.token(), body, 200).asLong();
+        long count = jdbc.queryForObject("SELECT COUNT(*) FROM content", Long.class);
+        long historyCount = jdbc.queryForObject("SELECT COUNT(*) FROM business_history", Long.class);
+        var payload = Map.of("syncNews", true, "newsId", id);
+        call("POST", "/competition/" + cid + "/publish", admin.token(), payload, 400);
+        assertEquals("DRAFT", jdbc.queryForObject("SELECT status FROM competition WHERE id=?", String.class, cid));
+        assertEquals("DRAFT", jdbc.queryForObject("SELECT status FROM content WHERE id=?", String.class, id));
+        assertEquals(historyCount, jdbc.queryForObject("SELECT COUNT(*) FROM business_history", Long.class));
+        body.put("officialUrl", "https://example.org/contest");
+        call("PUT", "/content/" + id, admin.token(), body, 200);
+        assertEquals(id, call("POST", "/competition/" + cid + "/publish", admin.token(), payload, 200).asLong());
+        assertEquals("REGISTERING", jdbc.queryForObject("SELECT status FROM competition WHERE id=?", String.class, cid));
+        assertEquals("PUBLISHED", jdbc.queryForObject("SELECT status FROM content WHERE id=?", String.class, id));
+        assertEquals(count, jdbc.queryForObject("SELECT COUNT(*) FROM content", Long.class));
+        call("POST", "/competition/" + cid + "/publish", admin.token(), payload, 400);
+        assertEquals(count, jdbc.queryForObject("SELECT COUNT(*) FROM content", Long.class));
+    }
+
+    @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void competitionCannotReuseAnotherAuthorsNewsOrPublishedNews() throws Exception {
+        var admin = actor("ADMIN"); var other = actor("MAJOR_ADMIN"); var teacher = actor("TEACHER");
+        long cid = call("POST", "/competition", admin.token(), competitionBody(teacher.id(), null), 200).asLong();
+        var body = Map.of("title", "Existing draft", "category", "NEWS", "officialUrl", "https://example.org/contest");
+        long otherId = call("POST", "/content", other.token(), body, 200).asLong();
+        call("POST", "/competition/" + cid + "/publish", admin.token(), Map.of("syncNews", true, "newsId", otherId), 403);
+        long own = call("POST", "/content", admin.token(), body, 200).asLong();
+        call("POST", "/competition/" + cid + "/publish", admin.token(), Map.of("syncNews", true, "newsId", own, "news", body), 400);
+        call("PUT", "/content/" + own + "/status?status=PUBLISHED", admin.token(), null, 200);
+        call("POST", "/competition/" + cid + "/publish", admin.token(), Map.of("syncNews", true, "newsId", own), 400);
+        long notice = call("POST", "/content", admin.token(), Map.of("title", "Notice", "category", "NOTICE"), 200).asLong();
+        call("POST", "/competition/" + cid + "/publish", admin.token(), Map.of("syncNews", true, "newsId", notice), 400);
+        assertEquals("DRAFT", jdbc.queryForObject("SELECT status FROM competition WHERE id=?", String.class, cid));
+    }
+
     private long uploadImage(String token, String type) throws Exception {
         byte[] bytes = java.util.Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5WQAAAAASUVORK5CYII=");
         var response=mvc.perform(MockMvcRequestBuilders.multipart("/api/file/award-material")

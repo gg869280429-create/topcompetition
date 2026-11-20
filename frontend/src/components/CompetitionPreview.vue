@@ -29,7 +29,7 @@
     </PageContainer>
 
     <el-dialog v-model="detailVisible" title="竞赛详情" width="600px">
-      <el-descriptions :column="2" border>
+      <el-descriptions class="competition-detail" :column="2" border>
         <el-descriptions-item label="竞赛名称" :span="2">{{ detail.title }}</el-descriptions-item>
         <el-descriptions-item label="赛制">{{ COMPETITION_TYPE[detail.competitionType] || detail.competitionType }}</el-descriptions-item>
         <el-descriptions-item label="级别">{{ COMPETITION_LEVEL[detail.level] || detail.level }}</el-descriptions-item>
@@ -58,7 +58,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import { useUserStore } from '@/store/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { updateCompetitionStatus, pageCompetition } from '@/api/competition'
+import { updateCompetitionStatus, pageCompetition, getCompetition } from '@/api/competition'
 import CompetitionResources from '@/components/CompetitionResources.vue'
 import { COMPETITION_TYPE, COMPETITION_LEVEL, COMPETITION_STATUS } from '@/constants/dict'
 
@@ -99,9 +99,11 @@ async function fetchList() {
   }
 }
 
-function openDetail(c) {
-  detail.value = c
-  detailVisible.value = true
+async function openDetail(c) {
+  try {
+    detail.value = (await getCompetition(c.id)).data
+    detailVisible.value = true
+  } catch { await fetchList() }
 }
 
 function goApply(c) {
@@ -112,6 +114,11 @@ onMounted(fetchList)
 </script>
 
 <style scoped>
+.competition-detail :deep(.el-descriptions__label) {
+  width: 112px;
+  white-space: nowrap;
+}
+
 .comp-card {
   margin-bottom: var(--spacing-md);
 }

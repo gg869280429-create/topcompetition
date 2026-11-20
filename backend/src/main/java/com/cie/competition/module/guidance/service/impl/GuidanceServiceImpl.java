@@ -122,8 +122,18 @@ public class GuidanceServiceImpl implements GuidanceService {
     @Override
     public List<com.cie.competition.module.guidance.vo.CompetitionTeacherVO> competitionTeachers(Long competitionId) {
         competitionService.getById(competitionId);
+        boolean ownOnly = "TEACHER".equals(UserContext.get().getRole());
         var quotas = quotaMapper.selectList(new LambdaQueryWrapper<GuidanceQuota>()
-                .eq(GuidanceQuota::getCompetitionId, competitionId).gt(GuidanceQuota::getQuota, 0).orderByAsc(GuidanceQuota::getId));
+                .eq(GuidanceQuota::getCompetitionId, competitionId)
+                .eq(ownOnly, GuidanceQuota::getTeacherId, UserContext.getUserId())
+                .gt(!ownOnly, GuidanceQuota::getQuota, 0).orderByAsc(GuidanceQuota::getId));
+        if (ownOnly && quotas.isEmpty()) {
+            var historical = new GuidanceQuota();
+            historical.setCompetitionId(competitionId);
+            historical.setTeacherId(UserContext.getUserId());
+            historical.setQuota(0);
+            quotas = List.of(historical);
+        }
         Map<Long, com.cie.competition.module.user.vo.TeacherVO> profiles = teacherService.activeProfiles(
                 quotas.stream().map(GuidanceQuota::getTeacherId).toList()).stream().collect(Collectors.toMap(com.cie.competition.module.user.vo.TeacherVO::getId, t -> t));
         return quotas.stream().filter(q -> profiles.containsKey(q.getTeacherId())).map(q -> {

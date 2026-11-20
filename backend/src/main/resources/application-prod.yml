@@ -1,9 +1,12 @@
 # 生产凭据由部署环境提供，禁止在此填写真实值。
+app:
+  bootstrap-default-users:
+    enabled: false
+
 spring:
   datasource:
-    url: ${PROD_DB_URL}
-    username: ${PROD_DB_USERNAME}
-    password: ${PROD_DB_PASSWORD}
-
+    url: 'jdbc:mysql://121.43.28.114:3306/comptation?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true'
+    username: 'CPT'
+    password: 'Siyuangehmp123'
 jwt:
-  secret: ${PROD_JWT_SECRET}
+  secret: 'BlxnH3BcpQQiOJENVHNBKVNyTz7jeBf1WnknTx1FioryDW067LPCD+5VHws1Kkx5uLW6PUaS+iHzrr91GKLfVw=='

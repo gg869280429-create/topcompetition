@@ -30,10 +30,16 @@ public class CompetitionManagementService {
     public Long publish(Long id, CompetitionPublishDTO dto) {
         competitionService.updateStatus(id, "REGISTERING");
         if (!Boolean.TRUE.equals(dto.getSyncNews())) return null;
-        if (dto.getNews() == null) throw new BusinessException("请填写同步发布的新闻信息");
-        if (!"NEWS".equals(dto.getNews().getCategory())) throw new BusinessException("同步发布的内容必须为新闻");
-        Long newsId = contentService.create(dto.getNews());
-        contentService.updateStatus(newsId, "PUBLISHED");
+        Long newsId = dto.getNewsId();
+        if (newsId != null) {
+            if (dto.getNews() != null) throw new BusinessException("新闻草稿编号和新增信息不能同时提交");
+            contentService.publishOwnNewsDraft(newsId);
+        } else {
+            if (dto.getNews() == null) throw new BusinessException("请填写同步发布的新闻信息");
+            if (!"NEWS".equals(dto.getNews().getCategory())) throw new BusinessException("同步发布的内容必须为新闻");
+            newsId = contentService.create(dto.getNews());
+            contentService.updateStatus(newsId, "PUBLISHED");
+        }
         historyService.record("COMPETITION", id, "NEWS_PUBLISHED", null, java.util.Map.of("newsId", newsId), "发布竞赛时同步发布新闻");
         return newsId;
     }

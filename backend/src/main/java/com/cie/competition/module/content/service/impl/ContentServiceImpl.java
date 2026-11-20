@@ -84,7 +84,14 @@ public class ContentServiceImpl implements ContentService {
         validateDraft(dto);
         Content content = lockContent(id);
         if (!"DRAFT".equals(content.getStatus())) {
-            throw new BusinessException("仅草稿状态的内容可编辑");
+            if (!"NEWS".equals(content.getCategory())) throw new BusinessException("仅草稿状态的内容可编辑");
+            if ("NEWS".equals(dto.getCategory())) validateUrl(dto.getOfficialUrl(), true);
+            var now = LocalDateTime.now();
+            if (dto.getPublishEndTime() != null && !dto.getPublishEndTime().isAfter(now))
+                throw new BusinessException("新闻结束时间已到期，请先修改时间");
+            String status = dto.getPublishStartTime() != null && dto.getPublishStartTime().isAfter(now) ? "SCHEDULED" : "PUBLISHED";
+            if ("SCHEDULED".equals(content.getStatus()) && "PUBLISHED".equals(status)) content.setPublishTime(now);
+            content.setStatus(status);
         }
         content.setTitle(dto.getTitle());
         content.setContent(dto.getContent());
@@ -93,6 +100,7 @@ public class ContentServiceImpl implements ContentService {
         content.setOfficialUrl(dto.getOfficialUrl()); content.setCarouselEnabled(Boolean.TRUE.equals(dto.getCarouselEnabled())); content.setSortOrder(dto.getSortOrder()==null?0:dto.getSortOrder());
         contentMapper.update(null,new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<Content>()
             .eq(Content::getId,id).set(Content::getTitle,content.getTitle()).set(Content::getContent,content.getContent())
+            .set(Content::getStatus,content.getStatus()).set(Content::getPublishTime,content.getPublishTime())
             .set(Content::getCategory,content.getCategory()).set(Content::getCoverFileId,content.getCoverFileId())
             .set(Content::getOfficialUrl,content.getOfficialUrl()).set(Content::getCarouselEnabled,content.getCarouselEnabled()).set(Content::getSortOrder,content.getSortOrder()).set(Content::getPublishStartTime,dto.getPublishStartTime()).set(Content::getPublishEndTime,dto.getPublishEndTime()).set(Content::getCarouselStartTime,dto.getCarouselStartTime()).set(Content::getCarouselEndTime,dto.getCarouselEndTime()));
     }
@@ -134,6 +142,16 @@ public class ContentServiceImpl implements ContentService {
             .orderByAsc(Content::getSortOrder).orderByDesc(Content::getPublishTime).last("LIMIT 20");
         var list=contentMapper.selectList(wrapper);
         return assembleVOs(list);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public void publishOwnNewsDraft(Long id) {
+        requireManager();
+        var content = lockContent(id);
+        if (!UserContext.getUserId().equals(content.getAuthorId())) throw new BusinessException(403, "只能同步发布本人创建的新闻草稿");
+        if (!"NEWS".equals(content.getCategory()) || !"DRAFT".equals(content.getStatus()))
+            throw new BusinessException("同步发布的内容必须为新闻草稿");
+        updateStatus(id, "PUBLISHED");
     }
     public Long coverFileId(Long id) {
         var content=getContent(id);

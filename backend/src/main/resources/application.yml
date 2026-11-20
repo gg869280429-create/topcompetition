@@ -4,7 +4,7 @@ server:
 spring:
   profiles:
     # 本机 local / 测试 test / 生产 prod；IDE 或 SPRING_PROFILES_ACTIVE 可覆盖。
-    default: local
+    default: prod
   application:
     name: competition-backend
   servlet:

@@ -134,7 +134,9 @@ mvn spring-boot:run "-Dspring-boot.run.profiles=local"
 
 后端默认端口为 `8080`。也可在 IDE 中运行 `com.cie.competition.Application`，Active profiles 设置为 `local`；公共配置默认环境同样是 `local`。
 
-首次启动会按需创建 `admin`、`majoradmin` 账号，初始化逻辑见 [DataInitializer.java](backend/src/main/java/com/cie/competition/common/config/DataInitializer.java)。首次部署应修改初始口令，并给专业管理员配置真实所属专业；没有专业的专业管理员无法正常办理本专业业务。
+本机首次启动会按需创建 `admin`、`majoradmin` 账号，初始化逻辑见 [DataInitializer.java](backend/src/main/java/com/cie/competition/common/config/DataInitializer.java)。首次部署应修改初始口令，并给专业管理员配置真实所属专业；没有专业的专业管理员无法正常办理本专业业务。
+
+生产环境已关闭默认账号自动初始化。仅保留一个系统管理员的新生产库可使用[生产初始化 SQL 及说明](sql/production/README.md)，不要与新库通用初始化或历史示例数据混用。
 
 ### 4. 启动前端
 

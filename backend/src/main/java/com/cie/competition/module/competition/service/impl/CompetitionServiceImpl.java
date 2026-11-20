@@ -94,6 +94,7 @@ public class CompetitionServiceImpl implements CompetitionService {
         if (isStudent() || isTeacher()) {
             wrapper.ne(Competition::getStatus, "DRAFT");
         }
+        if (isTeacher()) restrictToTeacher(wrapper);
         wrapper.orderByDesc(Competition::getCreateTime);
         Page<Competition> page = competitionMapper.selectPage(
                 new Page<>(query.getCurrent(), query.getSize()), wrapper);
@@ -111,8 +112,19 @@ public class CompetitionServiceImpl implements CompetitionService {
             if ("DRAFT".equals(competition.getStatus())) {
                 throw new BusinessException(ResultCode.NOT_FOUND.getCode(), "竞赛不存在");
             }
+            var scope = new LambdaQueryWrapper<Competition>().eq(Competition::getId, id);
+            restrictToTeacher(scope);
+            if (competitionMapper.selectCount(scope) == 0)
+                throw new BusinessException(ResultCode.FORBIDDEN.getCode(), "无权查看其他老师的竞赛");
         }
         return toVO(competition);
+    }
+
+    private void restrictToTeacher(LambdaQueryWrapper<Competition> wrapper) {
+        Long teacherId = UserContext.getUserId();
+        wrapper.and(scope -> scope
+                .apply("EXISTS (SELECT 1 FROM guidance_quota q WHERE q.competition_id=competition.id AND q.teacher_id={0})", teacherId)
+                .or().apply("EXISTS (SELECT 1 FROM guidance g JOIN registration r ON r.id=g.registration_id WHERE r.competition_id=competition.id AND g.teacher_id={0})", teacherId));
     }
 
     @Override

@@ -209,18 +209,15 @@
       <el-form label-width="110px" @submit.prevent>
         <el-form-item label="竞赛名称">{{ publishForm.competitionTitle }}</el-form-item>
         <el-form-item label="同步发布新闻"><el-switch v-model="publishForm.syncNews" :disabled="publishing" /></el-form-item>
-        <template v-if="publishForm.syncNews">
-          <el-form-item label="新闻标题" required><el-input v-model="publishForm.title" maxlength="128" show-word-limit :disabled="publishing" /></el-form-item>
-          <el-form-item label="比赛官网" required><el-input v-model="publishForm.officialUrl" placeholder="https://对应大赛官网" maxlength="2048" :disabled="publishing" /></el-form-item>
-          <el-form-item label="新闻正文"><el-input v-model="publishForm.content" type="textarea" :rows="6" :disabled="publishing" /></el-form-item>
-          <el-alert title="发布后可在新闻管理中维护封面和首页轮播。" type="info" :closable="false" />
-        </template>
+        <el-alert v-if="publishForm.syncNews" title="下一步填写新闻、上传封面，默认开启两周首页轮播；确认后同时发布竞赛和新闻。" type="info" :closable="false" />
       </el-form>
       <template #footer>
         <el-button :disabled="publishing" @click="publishVisible = false">取消</el-button>
-        <el-button type="primary" :loading="publishing" @click="handlePublish">确认发布</el-button>
+        <el-button type="primary" :loading="publishing" @click="handlePublish">{{ publishForm.syncNews ? '下一步：填写新闻' : '确认发布' }}</el-button>
       </template>
     </el-dialog>
+
+    <NewsEditorDialog v-model="newsEditorVisible" :initial-value="newsInitial" :default-carousel-weeks="2" lock-category :publish-action="publishWithNews" @saved="fetchList" />
 
     <!-- 详情弹窗 -->
     <el-dialog v-model="detailVisible" title="竞赛详情" width="640px">
@@ -259,6 +256,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import CompetitionTeacherConfig from '@/components/CompetitionTeacherConfig.vue'
 import CompetitionResources from '@/components/CompetitionResources.vue'
+import NewsEditorDialog from '@/components/NewsEditorDialog.vue'
 import { listMajors } from '@/api/teacher'
 import { pageQuota } from '@/api/guidance'
 import { uploadFile } from '@/api/file'
@@ -290,33 +288,33 @@ const uploadingDocument = ref(false)
 const loadingTeachers = ref(false)
 const publishVisible = ref(false)
 const publishing = ref(false)
-const publishForm = reactive({ id: null, competitionTitle: '', syncNews: false, title: '', content: '', officialUrl: '' })
+const publishForm = reactive({ id: null, competitionTitle: '', syncNews: false, content: '' })
+const newsEditorVisible = ref(false), newsInitial = ref({})
 
 function openPublish(row) {
-  Object.assign(publishForm, { id: row.id, competitionTitle: row.title, syncNews: false, title: row.title, content: row.description || '', officialUrl: '' })
+  Object.assign(publishForm, { id: row.id, competitionTitle: row.title, syncNews: false, content: row.description || '' })
   publishVisible.value = true
 }
 
 async function handlePublish() {
   if (publishing.value) return
   if (publishForm.syncNews) {
-    if (!publishForm.title.trim()) { ElMessage.warning('请输入新闻标题'); return }
-    try {
-      const url = new URL(publishForm.officialUrl.trim())
-      if (!['http:', 'https:'].includes(url.protocol) || !url.hostname || url.username || url.password) throw new Error()
-    } catch { ElMessage.warning('请填写有效的 HTTP/HTTPS 比赛官网地址'); return }
+    newsInitial.value = { title:publishForm.competitionTitle, content:publishForm.content, category:'NEWS' }
+    publishVisible.value = false
+    newsEditorVisible.value = true
+    return
   }
   publishing.value = true
   try {
-    await publishCompetition(publishForm.id, {
-      syncNews: publishForm.syncNews,
-      ...(publishForm.syncNews ? { news: { title: publishForm.title.trim(), content: publishForm.content, officialUrl: publishForm.officialUrl.trim(), category: 'NEWS' } } : {})
-    })
-    ElMessage.success(publishForm.syncNews ? '竞赛和新闻已发布' : '竞赛已发布')
+    await publishCompetition(publishForm.id, { syncNews:false })
+    ElMessage.success('竞赛已发布')
     publishVisible.value = false
     await fetchList()
   } catch { return }
   finally { publishing.value = false }
+}
+async function publishWithNews(newsId) {
+  await publishCompetition(publishForm.id, { syncNews:true, newsId })
 }
 const list = ref([])
 const majors = ref([])

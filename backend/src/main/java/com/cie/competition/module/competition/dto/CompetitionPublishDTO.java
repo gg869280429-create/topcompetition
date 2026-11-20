@@ -7,6 +7,8 @@ import lombok.Data;
 @Data
 public class CompetitionPublishDTO {
     private Boolean syncNews = false;
+    @jakarta.validation.constraints.Positive
+    private Long newsId;
     @Valid
     private ContentDTO news;
 }
