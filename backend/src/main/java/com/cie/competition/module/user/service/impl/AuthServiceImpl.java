@@ -9,6 +9,7 @@ import com.cie.competition.module.user.dto.LoginDTO;
 import com.cie.competition.module.user.entity.User;
 import com.cie.competition.module.user.mapper.UserMapper;
 import com.cie.competition.module.user.service.AuthService;
+import com.cie.competition.module.user.service.UserAvatarService;
 import com.cie.competition.module.user.vo.LoginVO;
 import com.cie.competition.module.user.vo.UserInfoVO;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final UserAvatarService avatars;
 
     @Override
     public LoginVO login(LoginDTO dto) {
@@ -49,6 +51,6 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private UserInfoVO toUserInfoVO(User user) {
-        return new UserInfoVO(user.getId(), user.getUsername(), user.getRealName(), user.getRole(), user.getMajorId());
+        return new UserInfoVO(user.getId(), user.getUsername(), user.getRealName(), user.getRole(), user.getMajorId(), avatars.signedUrl(user.getAvatarUrl()));
     }
 }

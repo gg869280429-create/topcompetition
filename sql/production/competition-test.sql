@@ -336,6 +336,7 @@ CREATE TABLE `sys_user` (
   `expertise` varchar(255) DEFAULT NULL,
   `biography` text,
   `class_name` varchar(64) DEFAULT NULL COMMENT '学生班级',
+  `avatar_url` varchar(1024) DEFAULT NULL COMMENT '头像OSS永久地址（不含签名）',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_username` (`username`),
   KEY `idx_major_id` (`major_id`),

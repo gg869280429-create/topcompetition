@@ -28,6 +28,8 @@ public class User {
 
     private String realName;
 
+    private String avatarUrl;
+
     /** 角色：ADMIN / TEACHER / STUDENT */
     private String role;
 

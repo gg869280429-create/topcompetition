@@ -89,20 +89,20 @@ class RegistrationIntegrityTest {
     @Test void rejectsForeignMajorAdministratorRead() {
         existingRegistration("PENDING");
         UserContext.set(new LoginUser(5L, "admin", "MAJOR_ADMIN"));
-        when(users.getById(5L)).thenReturn(new UserInfoVO(5L, "a", "a", "MAJOR_ADMIN", 200L));
+        when(users.getById(5L)).thenReturn(new UserInfoVO(5L, "a", "a", "MAJOR_ADMIN", 200L, null));
         assertThrows(BusinessException.class, () -> service.getById(20L));
     }
     @Test void rejectsForeignMajorAdministratorReview() {
         existingRegistration("PENDING");
         UserContext.set(new LoginUser(5L, "admin", "MAJOR_ADMIN"));
-        when(users.getById(5L)).thenReturn(new UserInfoVO(5L, "a", "a", "MAJOR_ADMIN", 200L));
+        when(users.getById(5L)).thenReturn(new UserInfoVO(5L, "a", "a", "MAJOR_ADMIN", 200L, null));
         ReviewDTO review = new ReviewDTO(); review.setResult("APPROVED");
         assertThrows(BusinessException.class, () -> service.review(20L, review));
     }
     @Test void allowsReviewAfterRegistrationDeadline() {
         Registration r = existingRegistration("PENDING");
         UserContext.set(new LoginUser(5L, "admin", "MAJOR_ADMIN"));
-        when(users.getById(5L)).thenReturn(new UserInfoVO(5L, "a", "a", "MAJOR_ADMIN", 100L));
+        when(users.getById(5L)).thenReturn(new UserInfoVO(5L, "a", "a", "MAJOR_ADMIN", 100L, null));
         ReviewDTO review = new ReviewDTO(); review.setResult("APPROVED");
         service.review(20L, review);
         assertEquals("APPROVED", r.getStatus());

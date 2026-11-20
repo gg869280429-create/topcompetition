@@ -15,4 +15,5 @@ public class UserInfoVO {
     private String realName;
     private String role;
     private Long majorId;
+    private String avatarUrl;
 }

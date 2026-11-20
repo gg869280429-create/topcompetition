@@ -23,6 +23,7 @@ public class ProfileService {
     private final UserMapper users;
     private final JdbcTemplate jdbc;
     private final PasswordEncoder encoder;
+    private final UserAvatarService avatars;
 
     public ProfileVO get() {
         return view(current(false));
@@ -66,6 +67,6 @@ public class ProfileService {
     private ProfileVO view(User user) {
         var names = jdbc.queryForList("SELECT name FROM sys_major WHERE id=?", String.class, user.getMajorId());
         return new ProfileVO(user.getId(), user.getUsername(), user.getRealName(), user.getMajorId(),
-                names.isEmpty() ? null : names.get(0), user.getEmail(), user.getPhone());
+                names.isEmpty() ? null : names.get(0), user.getEmail(), user.getPhone(), avatars.signedUrl(user.getAvatarUrl()));
     }
 }

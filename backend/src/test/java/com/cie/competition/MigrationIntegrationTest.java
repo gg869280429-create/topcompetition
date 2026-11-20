@@ -30,7 +30,7 @@ class MigrationIntegrationTest extends IsolatedDatabaseTest {
         Path root = Path.of("../sql");
         String schema = Files.readString(root.resolve("init.sql"));
         Map<String, Set<String>> additions = Map.of(
-                "sys_user", Set.of("token_version", "class_name"),
+                "sys_user", Set.of("token_version", "class_name", "avatar_url"),
                 "sys_major", Set.of("icon_code", "logo_file_id"),
                 "competition", Set.of("manager_id", "cancellation_reason", "cancelled_at", "major_id", "all_majors"),
                 "registration", Set.of("leader_name_snapshot", "major_name_snapshot", "roster_locked_at", "roster_locked_by", "source_team_id"),
@@ -76,7 +76,8 @@ class MigrationIntegrationTest extends IsolatedDatabaseTest {
                 try (var result = statement.executeQuery("SELECT team_name,review_comment,update_time,leader_name_snapshot,major_name_snapshot FROM registration WHERE id=1")) {
                     assertTrue(result.next());
                     assertEquals("历史团队", result.getString(1)); assertEquals("原审核意见", result.getString(2));
-                    assertEquals("2020-01-02 03:04:05", result.getTimestamp(3).toString().substring(0, 19));
+                    assertEquals("2020-01-02 03:04:05", result.getObject(3, java.time.LocalDateTime.class)
+                            .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
                     assertEquals("原学生", result.getString(4)); assertEquals("原专业", result.getString(5));
                 }
                 try (var result = statement.executeQuery("SELECT major_id,participants_snapshot,registrant_id,review_time FROM award WHERE id=1")) {
@@ -97,6 +98,8 @@ class MigrationIntegrationTest extends IsolatedDatabaseTest {
                 execute(connection, Files.readString(root.resolve("migrations/20261112_06_student_team.sql")));
                 execute(connection, Files.readString(root.resolve("migrations/20261118_07_admin_panel.sql")));
                 execute(connection, Files.readString(root.resolve("migrations/20261118_08_competition_options.sql")));
+                execute(connection, Files.readString(root.resolve("migrations/20261120_09_user_avatar.sql")));
+                try(var result=statement.executeQuery("SELECT avatar_url FROM sys_user WHERE id=1")){assertTrue(result.next());assertNull(result.getString(1));}
                 try(var result=statement.executeQuery("SELECT all_majors,allow_cross_major FROM competition WHERE id=1")){assertTrue(result.next());assertEquals(0,result.getInt(1));assertEquals(0,result.getInt(2));}
                 statement.executeUpdate("INSERT INTO competition(title) VALUES('new-default-after-08')");
                 try(var result=statement.executeQuery("SELECT allow_cross_major FROM competition WHERE title='new-default-after-08'")){assertTrue(result.next());assertEquals(1,result.getInt(1));}
@@ -105,7 +108,7 @@ class MigrationIntegrationTest extends IsolatedDatabaseTest {
                 try(var result=statement.executeQuery("SELECT source_team_id FROM registration WHERE id=1")){assertTrue(result.next());assertNull(result.getObject(1));}
                 try(var result=statement.executeQuery("SELECT (SELECT COUNT(*) FROM student_team)+(SELECT COUNT(*) FROM student_team_member)")){assertTrue(result.next());assertEquals(0,result.getInt(1));}
                 try(var result=statement.executeQuery("SELECT roster_locked_at,review_comment,update_time FROM registration WHERE id=1")) {
-                    assertTrue(result.next());assertNotNull(result.getTimestamp(1));assertEquals("原审核意见",result.getString(2));assertEquals("2020-01-02 03:04:05",result.getTimestamp(3).toString().substring(0,19));
+                    assertTrue(result.next());assertNotNull(result.getTimestamp(1));assertEquals("原审核意见",result.getString(2));assertEquals("2020-01-02 03:04:05",result.getObject(3,java.time.LocalDateTime.class).format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
                 }
                 try (var result = statement.executeQuery("SELECT password,token_version FROM sys_user WHERE id=1")) {
                     assertTrue(result.next()); assertEquals("test-only",result.getString(1)); assertEquals(0,result.getLong(2));

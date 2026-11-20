@@ -114,16 +114,16 @@ SOURCE sql/init.sql;
 
 ### 2. 配置本机后端
 
-仅在本机配置文件尚不存在时复制模板：
+本机配置不存在时复制模板，不要覆盖已有文件：
 
 ```powershell
-Copy-Item backend/src/main/resources/application-local.example.yml backend/src/main/resources/application-local.yml
+if (-not (Test-Path backend/src/main/resources/application-local.yml)) {
+  Copy-Item backend/src/main/resources/application-local.example.yml backend/src/main/resources/application-local.yml
+}
 New-Item -ItemType Directory -Force logs | Out-Null
 ```
 
-编辑 `application-local.yml`，填写本机数据库地址、用户名、密码及独立随机 JWT 密钥。JWT 密钥至少32字节，不要直接使用模板占位值。
-
-`application-local.yml` 已被 Git 忽略，也不会打入发布 JAR。不要覆盖已有本机配置，不要提交真实密码、密钥或 Token。
+编辑 `application-local.yml`，填写数据库和独立随机 JWT 密钥；JWT 密钥至少32字节。头像 OSS 参数也可以在该文件中填写，默认关闭。真实本机配置已被 Git 忽略，也不会打入发布 JAR。
 
 ### 3. 启动后端
 
@@ -132,11 +132,9 @@ cd backend
 mvn spring-boot:run "-Dspring-boot.run.profiles=local"
 ```
 
-后端默认端口为 `8080`。也可在 IDE 中运行 `com.cie.competition.Application`，Active profiles 设置为 `local`；公共配置默认环境同样是 `local`。
+后端默认端口为 `8080`。IDE 可直接运行 `com.cie.competition.Application`，Active profiles 设置为 `local`，公共配置默认环境也是 `local`。
 
-本机首次启动会按需创建 `admin`、`majoradmin` 账号，初始化逻辑见 [DataInitializer.java](backend/src/main/java/com/cie/competition/common/config/DataInitializer.java)。首次部署应修改初始口令，并给专业管理员配置真实所属专业；没有专业的专业管理员无法正常办理本专业业务。
-
-生产环境已关闭默认账号自动初始化。仅保留一个系统管理员的新生产库可使用[生产初始化 SQL 及说明](sql/production/README.md)，不要与新库通用初始化或历史示例数据混用。
+本机首次启动会按需创建默认账号，初始化逻辑见 [DataInitializer.java](backend/src/main/java/com/cie/competition/common/config/DataInitializer.java)。生产环境通过 `application-prod.yml` 关闭默认账号自动创建；只有一个管理员的新生产库按 [生产 SQL 说明](sql/production/README.md) 初始化，不覆盖已有库。
 
 ### 4. 启动前端
 
@@ -154,39 +152,31 @@ npm run dev
 
 ## 环境切换与部署
 
-| 环境 | 配置 | 使用方式 |
+| 环境 | 配置文件 | 启用方式 |
 | --- | --- | --- |
-| 本机 | `application-local.yml` | 本机私有配置，启用 `local` |
-| 测试 | `application-test.yml` | 启用 `test`；使用前核对并配置独立测试库及密钥 |
-| 生产 | `application-prod.yml` | 启用 `prod`，由部署环境提供生产环境变量 |
+| 本地 | `application.yml`＋`application-local.yml` | `local`，也是默认环境 |
+| 测试 | `application.yml`＋`application-test.yml` | `test` |
+| 生产 | `application.yml`＋`application-prod.yml` | `prod` |
 
-可通过 IDE Active profiles、`SPRING_PROFILES_ACTIVE` 或 `--spring.profiles.active` 切换环境；每次只选择一个环境。环境切换不会创建数据库或自动执行迁移。
+公共 YAML 保存端口、上传限制、JSON/MyBatis、JWT 通用参数和 OSS 配置入口。本机实际凭据保存在忽略文件；测试使用 `TEST_DB_URL`、`TEST_DB_USERNAME`、`TEST_DB_PASSWORD`、`TEST_JWT_SECRET`；生产使用对应的 `PROD_*` 变量。密码及 JWT 密钥不提供明文默认值。OSS 的 AccessKey 可以在本机 YAML 填写，或通过 `OSS_ACCESS_KEY_ID`、`OSS_ACCESS_KEY_SECRET` 环境变量注入。
 
-公共配置使用 `DB_URL`、`DB_USERNAME`、`DB_PASSWORD`、`JWT_SECRET` 占位符；生产配置使用 `PROD_DB_URL`、`PROD_DB_USERNAME`、`PROD_DB_PASSWORD`、`PROD_JWT_SECRET`。生产变量须在部署环境中配置，不提供真实密码或密钥的默认值。
-
-**当前配置注意：**`application-test.yml` 仍存在固定数据库连接及敏感配置，尚未与生产配置一样全部改为环境变量占位。部署或提交前需单独处理，不能按历史文档假定它已读取 `TEST_*` 变量。本 README 不包含这些真实值。
-
-打包命令：
+通过 IDE Active profiles、`SPRING_PROFILES_ACTIVE` 或启动参数选择一个环境。配置切换不会创建数据库或执行迁移。完整说明见 [环境配置](docs/local-configuration.md)。
 
 ```powershell
-# 在 backend/ 中
+# 在 backend/ 中打包
 mvn package
 
-# 在 frontend/ 中
+# 生产启动前先设置 PROD_* 环境变量
+java -jar target/competition-backend-1.0.0.jar --spring.profiles.active=prod
+
+# 本机 JAR 显式加载未打入包的实际本机配置
+java -jar target/competition-backend-1.0.0.jar --spring.profiles.active=local --spring.config.additional-location=file:./src/main/resources/
+
+# 前端在 frontend/ 中构建
 npm run build
 ```
 
-生产后端启动（在 `backend/` 中，先配置上述生产变量）：
-
-```powershell
-java -jar target/competition-backend-1.0.0.jar --spring.profiles.active=prod
-```
-
-本机使用 JAR 时，由于本机配置没有打入包，需显式加载外部配置（同样在 `backend/` 中）：
-
-```powershell
-java -jar target/competition-backend-1.0.0.jar --spring.profiles.active=local --spring.config.additional-location=file:./src/main/resources/
-```
+不再使用 `config.properties`；原文件已备份到忽略目录，避免参数来源混淆。修改配置后重启后端。
 
 前端部署产物为 `frontend/dist/`。部署服务需将 `/api` 转发到后端，并为 Vue Router 的 History 路由配置回退到 `index.html`；Vite 的开发代理不会进入生产静态文件。
 
@@ -203,6 +193,7 @@ java -jar target/competition-backend-1.0.0.jar --spring.profiles.active=local --
 | 04、05、06 | 登录版本、教师确认名单锁定、独立学生组队 |
 | 07 | 学生班级、专业图标与 Logo、新闻及轮播独立时间配置 |
 | 08 | 全部专业标记、新建竞赛默认跨专业及双赛制兼容 |
+| 09 | 用户头像 OSS 稳定地址字段（可空） |
 
 完整流程：停止写入 → 备份数据库和附件 → 在独立恢复库演练 → 执行目标库缺失迁移 → 比对原字段、行数及关联数据 → 部署代码并验证业务。不要用清空数据库替代升级。
 
@@ -210,6 +201,8 @@ java -jar target/competition-backend-1.0.0.jar --spring.profiles.active=local --
 - [功能扩展迁移说明](docs/feature-migration-20261111.md)
 - [07 管理功能整合迁移](sql/migrations/20261118_07_admin_panel.md)
 - [08 竞赛选项迁移](sql/migrations/20261118_08_competition_options.md)
+- [09 用户头像迁移](sql/migrations/20261120_09_user_avatar.md)
+- [私有 OSS 头像配置与上传说明](docs/oss-avatar.md)
 
 历史兼容：旧学生班级可后续补录，旧专业可补图标；旧新闻无时间配置时沿用原规则；历史未分类竞赛不自动视为“全部专业”，历史跨专业开关也不会被新默认值覆盖。旧成果材料及人员归属按迁移说明核对补录。
 
@@ -221,7 +214,7 @@ java -jar target/competition-backend-1.0.0.jar --spring.profiles.active=local --
 mvn test
 ```
 
-需要真实 MySQL 的集成测试默认受开关控制。完整运行前准备本机配置，并使用专用测试 MySQL 实例及具备创建、测试和清理临时数据库所需权限的账号：
+需要真实 MySQL 的集成测试默认受开关控制。完整运行前准备本机 YAML 配置，并使用专用测试 MySQL 实例及具备创建、测试和清理临时数据库所需权限的账号：
 
 ```powershell
 $env:RUN_DB_TESTS = 'true'
@@ -232,7 +225,7 @@ try {
 }
 ```
 
-集成测试基类读取公共及本机配置，在对应 MySQL 实例创建随机隔离库，从 `sql/init.sql` 建表。迁移测试还会验证旧结构升级。这里的集成测试开关与 Spring 的 `test` profile 是两回事，不要将其连接到生产实例。
+集成测试基类读取公共及本机 YAML 配置，在对应 MySQL 实例创建随机隔离库，从 `sql/init.sql` 建表。迁移测试还会验证旧结构升级。这里的集成测试开关与 Spring 的 `test` profile 是两回事，不要将其连接到生产实例。
 
 覆盖重点包括报名时间、成员邀请、跨专业和重复资格校验、权限隔离、审核重提、退赛和名额释放、获奖材料、更正撤销、多教师成果、轮播时间及双赛制独立流程。测试结果以当次报告为准，不将接口返回成功或构建通过等同于完整业务验收。
 
@@ -250,7 +243,7 @@ Maven 内部测试报告仍保留在 `backend/target/surefire-reports/`。`outpu
 
 | 现象 | 检查方向 |
 | --- | --- |
-| `Could not resolve placeholder 'JWT_SECRET'` | 环境未选对或缺少对应密钥；检查 profile 和本机配置，不要添加明文默认值 |
+| 配置文件缺失或 JWT 配置错误 | 检查启用的 profile、本机 YAML 或 TEST/PROD 环境变量，以及 JAR 本机配置加载路径 |
 | 数据库连接失败 | 核对数据库是否启动、账号权限、连接地址及当前环境配置；切换环境不会同步数据库密码 |
 | `Unknown column` / 表不存在 | 代码与库结构版本不一致，按迁移说明检查缺失字段和表 |
 | 专业管理员无法处理业务 | 检查所属专业、目标数据归属及具体操作权限 |

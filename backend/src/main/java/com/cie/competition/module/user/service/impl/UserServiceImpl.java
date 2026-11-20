@@ -6,6 +6,7 @@ import com.cie.competition.common.result.ResultCode;
 import com.cie.competition.module.user.entity.User;
 import com.cie.competition.module.user.mapper.UserMapper;
 import com.cie.competition.module.user.service.UserService;
+import com.cie.competition.module.user.service.UserAvatarService;
 import com.cie.competition.module.user.vo.UserInfoVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
 public class UserServiceImpl implements UserService {
 
     private final UserMapper userMapper;
+    private final UserAvatarService avatars;
 
     @Override
     public UserInfoVO getById(Long id) {
@@ -78,6 +80,6 @@ public class UserServiceImpl implements UserService {
     }
 
     private UserInfoVO toVO(User user) {
-        return new UserInfoVO(user.getId(), user.getUsername(), user.getRealName(), user.getRole(), user.getMajorId());
+        return new UserInfoVO(user.getId(), user.getUsername(), user.getRealName(), user.getRole(), user.getMajorId(), avatars.signedUrl(user.getAvatarUrl()));
     }
 }

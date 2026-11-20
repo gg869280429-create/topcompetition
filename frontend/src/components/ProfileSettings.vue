@@ -2,10 +2,11 @@
   <div class="profile-page">
     <section v-loading="loading" class="settings-panel" aria-label="个人资料设置">
       <header class="profile-summary">
-        <el-avatar :size="64" class="identity-avatar">{{ (profile.realName || profile.username || '学').charAt(0) }}</el-avatar>
+        <el-avatar :size="64" :src="userStore.userInfo?.avatarUrl" class="identity-avatar">{{ (profile.realName || profile.username || '学').charAt(0) }}</el-avatar>
         <div class="identity-copy">
           <h1>{{ profile.realName || '我的资料' }}</h1>
           <p>{{ userStore.role === 'TEACHER' ? '教师' : '学生' }}<span v-if="profile.majorName" class="identity-major">{{ profile.majorName }}</span></p>
+          <AvatarUploader class="profile-avatar-upload" />
         </div>
       </header>
       <div class="settings-section">
@@ -60,6 +61,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/store/user'
 import { getProfile, updateProfile, changePassword } from '@/api/profile'
+import AvatarUploader from '@/components/AvatarUploader.vue'
 
 const router = useRouter(), userStore = useUserStore()
 const editForm = ref(), passwordForm = ref(), editField = ref(null)
@@ -148,6 +150,7 @@ onMounted(load)
 .profile-summary { display:flex; align-items:center; gap:20px; padding:30px 36px; background:#f6f9fd; border-bottom:1px solid var(--color-border-light); }
 .identity-avatar { flex-shrink:0; color:#3978e6; background:#e4edfc; font-size:26px; font-weight:600; }
 .identity-copy { min-width:0; }
+.profile-avatar-upload { margin-top:10px; }
 .identity-copy h1 { margin:0 0 10px; font-size:22px; font-weight:600; overflow-wrap:anywhere; }
 .identity-copy p { margin:0; color:var(--color-text-secondary); font-size:14px; line-height:1.6; }
 .identity-major { padding-left:16px; margin-left:16px; border-left:1px solid #d9e1eb; }

@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS `sys_major` (
 
 -- 系统用户表
 CREATE TABLE IF NOT EXISTS `sys_user` (
+    `avatar_url` VARCHAR(1024) DEFAULT NULL COMMENT '头像OSS永久地址（不含签名）',
     `class_name` VARCHAR(64) DEFAULT NULL COMMENT '学生班级',
     `id`          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
     `username`    VARCHAR(64)  NOT NULL COMMENT '登录用户名',

@@ -21,6 +21,7 @@ public class GlobalExceptionHandler {
             org.springframework.validation.BindException.class,
             org.springframework.beans.TypeMismatchException.class,
             org.springframework.web.bind.ServletRequestBindingException.class,
+            org.springframework.web.HttpMediaTypeNotSupportedException.class,
             org.springframework.web.multipart.support.MissingServletRequestPartException.class,
             org.springframework.web.multipart.MultipartException.class
     })

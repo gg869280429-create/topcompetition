@@ -32,11 +32,11 @@
 | `backend/src/main/java/com/cie/competition/common/result/` | 统一返回结果、状态码及分页结果结构。 |
 | `backend/src/main/java/com/cie/competition/common/exception/` | 业务异常和统一异常处理，将异常转换成接口响应。 |
 | `backend/src/main/java/com/cie/competition/module/` | 按功能拆分的业务模块，见下表。 |
-| `backend/src/main/resources/application.yml` | 公共配置：端口、默认环境、连接参数占位符、上传大小和 JSON 等。 |
+| `backend/src/main/resources/application.yml` | 公共参数及默认环境，配合分环境 YAML 加载。 |
 | `backend/src/main/resources/application-local.yml` | 本机真实配置，不提交 Git，也不打入发布 JAR。 |
-| `backend/src/main/resources/application-local.example.yml` | 不含真实凭据的本机配置模板。 |
-| `backend/src/main/resources/application-test.yml` | 测试环境配置，从测试环境变量读取连接及密钥。 |
-| `backend/src/main/resources/application-prod.yml` | 生产环境配置，从生产环境变量读取连接及密钥。 |
+| `backend/src/main/resources/application-local.example.yml` | 不含真实凭据的本机 YAML 模板。 |
+| `backend/src/main/resources/application-test.yml` | 测试配置，通过 `TEST_*` 环境变量提供连接及密钥。 |
+| `backend/src/main/resources/application-prod.yml` | 生产配置，通过 `PROD_*` 环境变量提供连接及密钥，关闭默认账号初始化。 |
 | `backend/src/test/java/` | 权限、报名、指导、获奖、新闻、文件、迁移及并发等自动化测试。 |
 | `backend/src/test/java/com/cie/competition/IsolatedDatabaseTest.java` | 为需要数据库的集成测试准备独立测试库。 |
 | `backend/target/` | Maven 生成的编译文件、测试报告、JAR 等，可通过构建重新生成，不提交 Git。 |

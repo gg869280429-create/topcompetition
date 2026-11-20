@@ -4,7 +4,7 @@ server:
 spring:
   profiles:
     # 本机 local / 测试 test / 生产 prod；IDE 或 SPRING_PROFILES_ACTIVE 可覆盖。
-    default: prod
+    default: local
   application:
     name: competition-backend
   servlet:
@@ -36,3 +36,13 @@ jwt:
   expire-hours: 24
   header: Authorization
   prefix: "Bearer "
+
+# 仅头像存入私有 OSS；凭据由 OSS_ACCESS_KEY_ID / OSS_ACCESS_KEY_SECRET 提供。
+app:
+  avatar-oss:
+    enabled: ${AVATAR_OSS_ENABLED:false}
+    endpoint: ${AVATAR_OSS_ENDPOINT:}
+    region: ${AVATAR_OSS_REGION:}
+    bucket: ${AVATAR_OSS_BUCKET:}
+    access-key-id: ${OSS_ACCESS_KEY_ID:}
+    access-key-secret: ${OSS_ACCESS_KEY_SECRET:}

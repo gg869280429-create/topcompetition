@@ -1,7 +1,7 @@
 spring:
   datasource:
-    url: 'jdbc:mysql://121.43.28.114:3306/competition-test?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true'
-    username: '	competition-test'
-    password: '123456'
+    url: ${TEST_DB_URL}
+    username: ${TEST_DB_USERNAME}
+    password: ${TEST_DB_PASSWORD}
 jwt:
-  secret: 'BlxnH3BcpQQiOJENVHNBKVNyTz7jeBf1WnknTx1FioryDW067LPCD+5VHws1Kkx5uLW6PUaS+iHzrr91GKLfVw=='
+  secret: ${TEST_JWT_SECRET}

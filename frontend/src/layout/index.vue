@@ -40,12 +40,13 @@
           </el-badge>
           <el-dropdown trigger="click" @command="handleCommand">
             <span class="user-info" role="button" tabindex="0" aria-label="打开个人菜单">
-              <el-avatar :size="30">{{ avatarText }}</el-avatar>
+              <el-avatar :size="30" :src="userStore.userInfo?.avatarUrl">{{ avatarText }}</el-avatar>
               <span class="user-name">{{ userStore.userInfo?.realName || userStore.userInfo?.username }}</span>
               <el-icon><ArrowDown /></el-icon>
             </span>
             <template #dropdown>
               <el-dropdown-menu>
+                <el-dropdown-item command="avatar">更换头像</el-dropdown-item>
                 <el-dropdown-item v-if="['STUDENT','TEACHER'].includes(userStore.role)" command="profile">
                   <el-icon><User /></el-icon>个人中心
                 </el-dropdown-item>
@@ -64,22 +65,25 @@
     </el-container>
 
     <MessageDrawer v-model="messageVisible" :unread="unread" @refresh="fetchUnread" />
+    <AvatarUploader ref="avatarUploader" :show-trigger="false" />
     <AwardCelebration v-if="userStore.role === 'TEACHER'" />
   </el-container>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/store/user'
 import MessageDrawer from '@/components/MessageDrawer.vue'
 import AwardCelebration from '@/components/AwardCelebration.vue'
+import AvatarUploader from '@/components/AvatarUploader.vue'
 import { unreadCount } from '@/api/message'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+const avatarUploader = ref()
 
 const isCollapse = ref(false)
 const sidebarWidth = computed(() => (isCollapse.value ? '64px' : '220px'))
@@ -123,6 +127,10 @@ async function fetchUnread() {
 }
 
 async function handleCommand(command) {
+  if (command === 'avatar') {
+    avatarUploader.value?.choose()
+    return
+  }
   if (command === 'profile') {
     router.push('/profile')
     return
@@ -134,7 +142,19 @@ async function handleCommand(command) {
   }
 }
 
-onMounted(fetchUnread)
+let avatarRefreshTimer
+function refreshAvatar() { if (userStore.isLoggedIn) userStore.fetchUserInfo().catch(() => {}) }
+function onVisibilityChange() { if (document.visibilityState === 'visible') refreshAvatar() }
+onMounted(() => {
+  fetchUnread()
+  refreshAvatar()
+  avatarRefreshTimer = setInterval(refreshAvatar, 5 * 60 * 1000)
+  document.addEventListener('visibilitychange', onVisibilityChange)
+})
+onUnmounted(() => {
+  clearInterval(avatarRefreshTimer)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+})
 </script>
 
 <style scoped>
