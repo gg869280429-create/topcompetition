@@ -1,7 +1,9 @@
 <template>
  <div><PageHeader title="专业管理"><template #actions><el-button type="primary" @click="open()">新增专业</el-button></template></PageHeader>
  <PageContainer><el-form inline @submit.prevent="load"><el-form-item label="名称"><el-input v-model="keyword" clearable /></el-form-item><el-button @click="load">查询</el-button></el-form>
- <el-table v-loading="loading" :data="rows" border><el-table-column prop="id" label="专业ID" width="100"/><el-table-column prop="name" label="专业名称"><template #default="{row}"><MajorLabel :name="row.name" :major-id="row.id" :icon-code="row.iconCode" :logo-file-id="row.logoFileId" /></template></el-table-column><el-table-column label="操作" width="160"><template #default="{row}"><el-button link type="primary" @click="open(row)">编辑</el-button><el-button link type="danger" @click="remove(row)">删除</el-button></template></el-table-column></el-table>
+ <PaginatedList :items="rows" :reset-key="keyword" v-slot="{ items }">
+   <el-table v-loading="loading" :data="items" border><el-table-column prop="id" label="专业ID" width="100"/><el-table-column prop="name" label="专业名称"><template #default="{row}"><MajorLabel :name="row.name" :major-id="row.id" :icon-code="row.iconCode" :logo-file-id="row.logoFileId" /></template></el-table-column><el-table-column label="操作" width="160"><template #default="{row}"><el-button link type="primary" @click="open(row)">编辑</el-button><el-button link type="danger" @click="remove(row)">删除</el-button></template></el-table-column></el-table>
+ </PaginatedList>
  </PageContainer><el-dialog v-model="visible" :title="form.id ? '编辑专业' : '新增专业'" width="440px"><el-form @submit.prevent="save"><el-form-item label="专业名称"><el-input v-model="form.name" maxlength="64" show-word-limit /></el-form-item>
  <el-form-item label="专业图标"><el-select v-model="form.iconCode" clearable placeholder="按专业名称自动匹配"><el-option v-for="item in presets" :key="item.code" :value="item.code" :label="item.label"><span style="display:flex;align-items:center;gap:8px"><el-icon><component :is="icons[item.code]" /></el-icon>{{ item.label }}</span></el-option></el-select></el-form-item>
  <el-form-item label="自定义Logo"><el-upload :http-request="upload" :show-file-list="false" accept="image/png,image/jpeg,image/webp" :disabled="uploading"><el-button :loading="uploading">上传Logo</el-button></el-upload><el-button v-if="form.logoFileId" link type="danger" @click="clearLogo">移除</el-button></el-form-item>
@@ -10,6 +12,7 @@
  </el-form><template #footer><el-button @click="visible=false">取消</el-button><el-button type="primary" :loading="saving" @click="save">保存</el-button></template></el-dialog></div>
 </template>
 <script setup>
+import PaginatedList from '@/components/PaginatedList.vue'
 import {Monitor,Cpu,Tools,SetUp,Coin,Brush,House,FirstAidKit,Reading,ChatDotRound,Bowl,Sunny,Collection} from '@element-plus/icons-vue'
 import request from '@/api/request'
 import MajorLabel from '@/components/MajorLabel.vue'

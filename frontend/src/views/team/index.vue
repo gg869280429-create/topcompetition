@@ -3,18 +3,22 @@
     <PageHeader title="我的组队"><template #actions><el-button type="primary" @click="openCreate">创建队伍</el-button></template></PageHeader>
     <PageContainer v-if="invitations.length">
       <h3>待处理邀请</h3>
-      <el-table :data="invitations" border><el-table-column prop="name" label="队伍"/><el-table-column prop="inviterName" label="邀请人"/><el-table-column label="操作" width="200"><template #default="{row}"><el-button link @click="openDetail(row.teamId)">查看</el-button><el-button link type="success" :disabled="busy" @click="respond(row.teamId,true)">接受</el-button><el-button link type="danger" :disabled="busy" @click="respond(row.teamId,false)">拒绝</el-button></template></el-table-column></el-table>
+      <PaginatedList :items="invitations" v-slot="{ items }">
+        <el-table :data="items" border><el-table-column prop="name" label="队伍"/><el-table-column prop="inviterName" label="邀请人"/><el-table-column label="操作" width="200"><template #default="{row}"><el-button link @click="openDetail(row.teamId)">查看</el-button><el-button link type="success" :disabled="busy" @click="respond(row.teamId,true)">接受</el-button><el-button link type="danger" :disabled="busy" @click="respond(row.teamId,false)">拒绝</el-button></template></el-table-column></el-table>
+      </PaginatedList>
       <p class="team-hint">接受组队后，确认的队长可使用当前名单报名多个团队赛；每次报名独立保存名单，并通知参赛成员。</p>
     </PageContainer>
     <PageContainer v-loading="loading">
       <el-empty v-if="!teams.length" description="还没有队伍，创建队伍或接受同学的邀请"/>
-      <el-table v-else :data="teams" border stripe>
-        <el-table-column prop="name" label="队伍名称" min-width="180"/>
-        <el-table-column label="状态" width="120"><template #default="{row}"><el-tag :type="row.status==='READY'?'success':'info'">{{ statusNames[row.status] }}</el-tag></template></el-table-column>
-        <el-table-column prop="memberCount" label="已加入人数" width="120"/>
-        <el-table-column label="队长" min-width="130"><template #default="{row}">{{ row.captainName || (row.nominatedCaptainId ? '等待本人确认' : '尚未指定') }}</template></el-table-column>
-        <el-table-column label="操作" min-width="250"><template #default="{row}"><el-button link type="primary" @click="openDetail(row.id)">队伍详情</el-button><el-button v-if="row.nominatedCaptainId===userId" link type="success" @click="openDetail(row.id)">确认队长</el-button><el-button v-if="row.status==='READY' && row.captainId===userId" link type="success" @click="goRegister(row)">报名团队赛</el-button></template></el-table-column>
-      </el-table>
+      <PaginatedList v-else :items="teams" v-slot="{ items }">
+        <el-table :data="items" border stripe>
+          <el-table-column prop="name" label="队伍名称" min-width="180"/>
+          <el-table-column label="状态" width="120"><template #default="{row}"><el-tag :type="row.status==='READY'?'success':'info'">{{ statusNames[row.status] }}</el-tag></template></el-table-column>
+          <el-table-column prop="memberCount" label="已加入人数" width="120"/>
+          <el-table-column label="队长" min-width="130"><template #default="{row}">{{ row.captainName || (row.nominatedCaptainId ? '等待本人确认' : '尚未指定') }}</template></el-table-column>
+          <el-table-column label="操作" min-width="250"><template #default="{row}"><el-button link type="primary" @click="openDetail(row.id)">队伍详情</el-button><el-button v-if="row.nominatedCaptainId===userId" link type="success" @click="openDetail(row.id)">确认队长</el-button><el-button v-if="row.status==='READY' && row.captainId===userId" link type="success" @click="goRegister(row)">报名团队赛</el-button></template></el-table-column>
+        </el-table>
+      </PaginatedList>
     </PageContainer>
     <el-dialog v-model="createVisible" title="创建队伍" width="min(540px,94vw)" :close-on-click-modal="false" :show-close="!busy">
       <el-form ref="createFormRef" :model="createForm" label-position="top" :rules="{name:[{required:true,whitespace:true,message:'请输入队伍名称',trigger:'blur'}]}">
@@ -29,12 +33,14 @@
         <h3>{{ detail.name }} <el-tag>{{ statusNames[detail.status] }}</el-tag></h3>
         <el-alert v-if="detail.status!=='DISBANDED'" type="info" :closable="false" title="名单变更后需重新指定并确认队长；已报名的竞赛名单保持独立。" />
         <div v-if="detail.nominatedCaptainId===userId" class="team-actions"><span>创建人指定你担任队长，是否确认？</span><el-button type="success" :disabled="busy" @click="captainResponse(true)">接受队长</el-button><el-button :disabled="busy" @click="captainResponse(false)">拒绝担任</el-button></div>
-        <el-table :data="detail.members || []" border style="margin-top:16px">
-          <el-table-column prop="name" label="姓名" min-width="110"/><el-table-column prop="majorName" label="专业" min-width="110"/>
-          <el-table-column label="身份" width="140"><template #default="{row}">{{ row.userId===detail.captainId?'队长':row.userId===detail.creatorId?'创建人':'队员' }}</template></el-table-column>
-          <el-table-column label="状态" width="110"><template #default="{row}">{{ memberNames[row.status] }}</template></el-table-column>
-          <el-table-column label="操作" min-width="180"><template #default="{row}"><template v-if="detail.status!=='DISBANDED' && detail.creatorId===userId && row.userId!==userId && ['INVITED','ACCEPTED'].includes(row.status)"><el-button link type="danger" :disabled="busy" @click="remove(row)">{{ row.status==='INVITED'?'撤销邀请':'移除成员' }}</el-button></template><el-button v-if="detail.status!=='DISBANDED' && detail.creatorId===userId && row.status==='ACCEPTED'" link type="primary" :disabled="busy || hasPending" @click="nominate(row)">指定队长</el-button></template></el-table-column>
-        </el-table>
+        <PaginatedList :items="detail.members || []" :reset-key="detailVisible + ':' + detail.id" v-slot="{ items }">
+          <el-table :data="items" border style="margin-top:16px">
+            <el-table-column prop="name" label="姓名" min-width="110"/><el-table-column prop="majorName" label="专业" min-width="110"/>
+            <el-table-column label="身份" width="140"><template #default="{row}">{{ row.userId===detail.captainId?'队长':row.userId===detail.creatorId?'创建人':'队员' }}</template></el-table-column>
+            <el-table-column label="状态" width="110"><template #default="{row}">{{ memberNames[row.status] }}</template></el-table-column>
+            <el-table-column label="操作" min-width="180"><template #default="{row}"><template v-if="detail.status!=='DISBANDED' && detail.creatorId===userId && row.userId!==userId && ['INVITED','ACCEPTED'].includes(row.status)"><el-button link type="danger" :disabled="busy" @click="remove(row)">{{ row.status==='INVITED'?'撤销邀请':'移除成员' }}</el-button></template><el-button v-if="detail.status!=='DISBANDED' && detail.creatorId===userId && row.status==='ACCEPTED'" link type="primary" :disabled="busy || hasPending" @click="nominate(row)">指定队长</el-button></template></el-table-column>
+          </el-table>
+        </PaginatedList>
         <template v-if="isJoined && detail.status!=='DISBANDED'">
           <el-form class="invite-form" label-position="top" @submit.prevent="invite">
             <el-form-item label="邀请新成员"><el-select v-model="inviteIds" multiple filterable remote :remote-method="search" :loading="searching" style="width:100%" placeholder="搜索并邀请同学"><el-option v-for="s in students" :key="s.id" :value="s.id" :label="`${s.realName || s.username}（${s.username}）`" :disabled="s.id===userId || detail.members?.some(m=>m.userId===s.id && ['ACCEPTED','INVITED'].includes(m.status))" /></el-select></el-form-item>
@@ -42,7 +48,9 @@
           </el-form>
           <p v-if="hasPending" class="team-hint">仍有学生未确认邀请，请等待响应或由创建人撤销邀请，再指定队长。</p>
         </template>
-        <el-collapse v-if="detail.history?.length" style="margin-top:20px"><el-collapse-item title="组队操作历史" name="history"><el-table :data="detail.history" size="small"><el-table-column prop="actorName" label="操作人"/><el-table-column prop="operation" label="操作"/><el-table-column prop="operationTime" label="时间" min-width="180"/></el-table></el-collapse-item></el-collapse>
+        <el-collapse v-if="detail.history?.length" style="margin-top:20px"><el-collapse-item title="组队操作历史" name="history"><PaginatedList :items="detail.history" :reset-key="detailVisible + ':' + detail.id" v-slot="{ items }">
+<el-table :data="items" size="small"><el-table-column prop="actorName" label="操作人"/><el-table-column prop="operation" label="操作"/><el-table-column prop="operationTime" label="时间" min-width="180"/></el-table>
+</PaginatedList></el-collapse-item></el-collapse>
       </div>
       <template #footer>
         <el-button v-if="detail.status!=='DISBANDED' && detail.creatorId===userId" type="danger" plain :disabled="busy" @click="disband">解散队伍</el-button>
@@ -54,6 +62,7 @@
   </div>
 </template>
 <script setup>
+import PaginatedList from '@/components/PaginatedList.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
