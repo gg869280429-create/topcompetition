@@ -2,13 +2,10 @@
   <div>
     <PageHeader :title="isStudent ? '我的报名' : isTeacher ? '指导团队详情' : '报名审核'">
       <template #actions>
-        <el-button v-if="isStudent" type="primary" @click="openApply">
-          <el-icon><Plus /></el-icon>报名竞赛
-        </el-button>
       </template>
     </PageHeader>
 
-    <PageContainer v-if="isStudent && invitations.length">
+    <div v-if="isStudent && invitations.length">
       <h3>我的团队邀请</h3>
       <p>首次报名接受邀请后由队长正式提交；已通过报名接受邀请后直接加入。待确认邀请不占用参赛资格。</p>
       <PaginatedList :items="invitations" v-slot="{ items }">
@@ -16,41 +13,39 @@
           <el-table-column prop="registrationId" label="报名编号" />
           <el-table-column prop="competitionTitle" label="竞赛" /><el-table-column prop="teamName" label="团队" /><el-table-column prop="inviterName" label="邀请人" />
           <el-table-column prop="status" label="邀请状态" />
-          <el-table-column label="操作"><template #default="{ row }">
+          <el-table-column label="操作">
+            <template #default="{ row }">
             <el-button v-if="row.status === 'PENDING'" link type="success" @click="respond(row, true)">接受</el-button>
             <el-button v-if="row.status === 'PENDING'" link type="danger" @click="respond(row, false)">拒绝</el-button>
-          </template></el-table-column>
+          </template>
+          </el-table-column>
         </el-table>
       </PaginatedList>
-    </PageContainer>
-    <PageContainer v-if="!isTeacher">
-      <el-form :inline="true" :model="query" class="search-form" @submit.prevent>
-        <el-form-item label="状态">
-          <el-select v-model="query.status" placeholder="全部" clearable style="width: 130px">
+    </div>
+    <div v-if="!isTeacher">
+      <div class="search-container">
+          <el-select v-model="query.status" placeholder="选择状态" clearable @clear='handleReset'>
             <el-option v-for="(label, value) in REGISTRATION_STATUS" :key="value" :label="label" :value="value" />
           </el-select>
-        </el-form-item>
-        <el-form-item>
           <el-button type="primary" @click="handleSearch">查询</el-button>
-          <el-button @click="handleReset">重置</el-button>
-        </el-form-item>
-      </el-form>
+          <el-button  type="primary" @click="openApply" icon="plus">报名竞赛</el-button>
+      </div>
 
       <el-table v-loading="loading" :data="list" border stripe>
         <el-table-column prop="competitionTitle" label="竞赛名称" min-width="180" show-overflow-tooltip />
         <el-table-column prop="teamName" label="团队名称" min-width="150" show-overflow-tooltip />
         <el-table-column prop="leaderName" label="队长" width="110" show-overflow-tooltip />
         <el-table-column label="指导老师" min-width="130"><template #default="{ row }">{{ row.guidanceTeacherNames || '待分配' }}</template></el-table-column>
-        <el-table-column label="成员数" width="80">
+        <el-table-column label="成员数" width="80" align="center">
           <template #default="{ row }">{{ row.members?.length || 0 }}</template>
         </el-table-column>
-        <el-table-column label="状态" width="100">
+        <el-table-column label="状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="statusTagType(row.status)">{{ REGISTRATION_STATUS[row.status] || row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="applyTime" label="报名时间" width="170" />
-        <el-table-column label="操作" width="330" fixed="right">
+        <el-table-column prop="applyTime" label="报名时间" width="170" align="center" />
+        <el-table-column label="操作" width="230" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row)">详情</el-button>
             <template v-if="isStudent && ['DRAFT', 'PENDING', 'REJECTED'].includes(row.status) && row.leaderId === currentUserId">
@@ -71,19 +66,16 @@
           </template>
         </el-table-column>
       </el-table>
-
-      <div class="pagination-wrapper">
-        <el-pagination
-          v-model:current-page="query.current"
-          v-model:page-size="query.size"
-          :total="total"
-          :page-sizes="[10, 20, 50]"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="fetchList"
-          @current-change="fetchList"
-        />
-      </div>
-    </PageContainer>
+      <el-pagination
+        v-model:current-page="query.current"
+        v-model:page-size="query.size"
+        :total="total"
+        :page-sizes="[10, 20, 50]"
+        layout="total, sizes, prev, pager, next, jumper"
+        @size-change="fetchList"
+        @current-change="fetchList"
+      />
+    </div>
 
     <!-- 报名 / 编辑弹窗 -->
     <el-dialog v-model="rosterVisible" title="调整队员" width="min(560px,95vw)" :close-on-click-modal="false" :close-on-press-escape="!rosterSaving" :show-close="!rosterSaving">
@@ -101,7 +93,7 @@
     <el-dialog
       v-model="applyVisible"
       :title="applyForm.id ? '编辑报名' : '报名竞赛'"
-      width="560px"
+      width="460px"
       :close-on-click-modal="false"
       @close="resetApplyForm"
     >
@@ -181,12 +173,9 @@
         <el-descriptions-item v-if="detail.reviewTime" label="审核时间" :span="2">{{ detail.reviewTime }}</el-descriptions-item>
         <el-descriptions-item v-if="detail.reviewComment" label="审核意见" :span="2">{{ detail.reviewComment }}</el-descriptions-item>
         <el-descriptions-item label="团队成员" :span="2">
-          <PaginatedList :items="detail.members || []" :reset-key="detailVisible + ':' + detail.id" v-slot="{ items }">
-            <div v-for="m in items" :key="m.userId" class="member-row">
-              <span>{{ m.name }}</span>
-              <el-tag v-if="m.memberRole === 'LEADER'" size="small" type="primary">队长</el-tag>
+            <div v-for="m in detail.members" :key="m.userId" class="member-row">
+              <el-tag >{{ m.name }}{{m.memberRole === 'LEADER'?'(队长)':''}}</el-tag>
             </div>
-          </PaginatedList>
         </el-descriptions-item>
       </el-descriptions>
       <h3>成员邀请记录</h3>

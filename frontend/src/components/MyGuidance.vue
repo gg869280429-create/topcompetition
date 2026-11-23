@@ -1,7 +1,8 @@
 <template>
-<div><PageContainer>
+<div>
         <GuidanceQuotaSummary ref="quotaSummaryRef" />
-        <h3>我的指导竞赛</h3>
+        <h3>指导竞赛</h3>
+
         <el-table :data="myCompetitions" border stripe>
           <el-table-column prop="competitionTitle" label="竞赛名称" min-width="180" />
           <el-table-column prop="remaining" label="剩余指导名额" min-width="130" />
@@ -21,19 +22,15 @@
             <el-button link type="primary" @click="openResults(row)">登记学生结果</el-button>
           </template></el-table-column>
         </el-table>
-        <div class="pagination-wrapper">
-          <el-pagination
-            v-model:current-page="mineQuery.current"
-            v-model:page-size="mineQuery.size"
-            :total="mineTotal"
-            :page-sizes="[10, 20, 50]"
-            layout="total, sizes, prev, pager, next"
-            @size-change="loadMine"
-            @current-change="loadMine"
-          />
-        </div>
-
-</PageContainer>
+        <el-pagination
+          v-model:current-page="mineQuery.current"
+          v-model:page-size="mineQuery.size"
+          :total="mineTotal"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next"
+          @size-change="loadMine"
+          @current-change="loadMine"
+        />
     <el-dialog v-model="resultsVisible" title="登记参赛结果" width="min(95vw,860px)" :close-on-click-modal="false" :close-on-press-escape="!resultSaving" :show-close="!resultSaving">
       <el-alert title="保存结果不会自动退赛或生成获奖申报。获奖后请前往获奖记录填写申报及上传材料。" type="info" :closable="false" />
       <div v-if="resultCompetitionType === 'TEAM'" class="team-result-panel">

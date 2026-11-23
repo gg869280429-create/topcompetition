@@ -1,18 +1,19 @@
 <template>
-  <div v-if="isReader">
-    <PageHeader title="首页" />
-    <NewsCarousel />
-  </div>
-  <CompetitionPreview v-else title="首页" />
+  <NewsCarousel v-if="isReader" />
+  <CompetitionPreview v-if="!isReader && !isTeacher" title="首页" />
+  <template v-if="isTeacher">
+    <MyGuidance />
+  </template>
 </template>
 
 <script setup>
 import { computed } from 'vue'
 import { useUserStore } from '@/store/user'
-import PageHeader from '@/components/PageHeader.vue'
 import NewsCarousel from '@/components/NewsCarousel.vue'
 import CompetitionPreview from '@/components/CompetitionPreview.vue'
+import MyGuidance from '@/components/MyGuidance.vue'
 
 const userStore = useUserStore()
-const isReader = computed(() => ['STUDENT', 'TEACHER'].includes(userStore.role))
+const isReader = computed(() => ['STUDENT'].includes(userStore.role))
+const isTeacher = computed(() => userStore.role === 'TEACHER')
 </script>

@@ -1,47 +1,27 @@
 <template>
   <div>
-    <PageHeader :title="title" />
-    <PageContainer v-loading="loading">
+   
       <el-empty v-if="!loading && list.length === 0" description="暂无竞赛信息" />
       <el-row v-else :gutter="16">
         <el-col v-for="c in list" :key="c.id" :xs="24" :sm="12" :md="8" :lg="6">
-          <el-popover
-            trigger="hover"
-            placement="right-start"
-            :width="600"
-            :show-after="2000"
-            :hide-after="400"
-            :enterable="true"
-            :disabled="detailVisible"
-            :popper-style="{ maxWidth: 'calc(100vw - 32px)' }"
-            @before-enter="loadHoverDetail(c)"
-          >
-            <template #reference>
-              <el-card class="comp-card" shadow="hover">
-                <div class="comp-title">{{ c.title }}</div>
-                <div class="comp-tags">
-                  <el-tag size="small" type="info"><MajorLabel :name="c.majorName" :major-id="c.majorId" :icon-code="c.majorIconCode" :logo-file-id="c.majorLogoFileId" /></el-tag>
-                  <el-tag size="small">{{ COMPETITION_LEVEL[c.level] || c.level }}</el-tag>
-                  <el-tag size="small" :type="c.competitionType === 'TEAM' ? 'primary' : 'success'">{{ COMPETITION_TYPE[c.competitionType] || c.competitionType }}</el-tag>
-                  <el-tag size="small" :type="statusTagType(c.status)">{{ COMPETITION_STATUS[c.status] || c.status }}</el-tag>
-                </div>
-                <div class="comp-time">
-                  报名：{{ c.registrationStartTime || '-' }} ~ {{ c.registrationEndTime || '-' }}
-                </div>
-                <div class="comp-desc">{{ c.description || '暂无简介' }}</div>
-                <div class="comp-actions">
-                  <el-button size="small" @click="openDetail(c)">详情</el-button>
-                  <el-button v-if="canManage(c)" size="small" :disabled="['ENDED','CANCELLED'].includes(c.status)" @click="router.push({path:'/competition',query:{edit:c.id,open:Date.now()}})">编辑</el-button>
-                  <el-button v-if="canManage(c)" size="small" type="danger" :disabled="['ENDED','CANCELLED'].includes(c.status)" @click="cancelCompetition(c)">取消竞赛</el-button>
-                  <el-button v-if="isStudent && c.status === 'REGISTERING'" size="small" type="success" @click="goApply(c)">报名参赛</el-button>
-                </div>
-              </el-card>
-            </template>
-            <div v-if="hoverDetail.id === c.id" class="comp-hover-detail">
-              <h3 class="comp-hover-heading">竞赛详情</h3>
-              <CompetitionDetailContent :competition="hoverDetail" />
+          <el-card class="comp-card" shadow="hover">
+            <div class="comp-title">{{ c.title }}</div>
+            <div class="comp-tags">
+              <el-tag size="small" type="info"><MajorLabel :name="c.majorName" :major-id="c.majorId" :icon-code="c.majorIconCode" :logo-file-id="c.majorLogoFileId" /></el-tag>
+              <el-tag size="small">{{ COMPETITION_LEVEL[c.level] || c.level }}</el-tag>
+              <el-tag size="small" :type="c.competitionType === 'TEAM' ? 'primary' : 'success'">{{ COMPETITION_TYPE[c.competitionType] || c.competitionType }}</el-tag>
+              <el-tag size="small" :type="statusTagType(c.status)">{{ COMPETITION_STATUS[c.status] || c.status }}</el-tag>
             </div>
-          </el-popover>
+            <div class="comp-time">
+              {{ c.registrationStartTime || '-' }} ~ {{ c.registrationEndTime || '-' }}
+            </div>
+            <div class="comp-actions">
+              <el-button size="small" @click="openDetail(c)">详情</el-button>
+              <el-button v-if="canManage(c)" size="small" :disabled="['ENDED','CANCELLED'].includes(c.status)" @click="router.push({path:'/competition',query:{edit:c.id,open:Date.now()}})">编辑</el-button>
+              <el-button v-if="canManage(c)" size="small" type="danger" :disabled="['ENDED','CANCELLED'].includes(c.status)" @click="cancelCompetition(c)">取消竞赛</el-button>
+              <el-button v-if="isStudent && c.status === 'REGISTERING'" size="small" type="success" @click="goApply(c)">报名参赛</el-button>
+            </div>
+          </el-card>
         </el-col>
       </el-row>
       <el-pagination
@@ -54,13 +34,10 @@
         @update:page-size="changePageSize"
         @change="fetchList"
       />
-    </PageContainer>
 
-    <el-dialog v-model="detailVisible" title="竞赛详情" width="600px">
+    <el-dialog v-model="detailVisible" title="竞赛详情" width="50%">
       <CompetitionDetailContent v-if="detailVisible" :competition="detail" />
     </el-dialog>
-
-
   </div>
 </template>
 
@@ -143,15 +120,8 @@ onMounted(fetchList)
 </script>
 
 <style scoped>
-.el-pagination {
-  margin-top: 16px;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 8px 0;
-}
 
 .comp-card {
-  height: 280px;
   margin-bottom: var(--spacing-md);
 }
 
@@ -182,7 +152,6 @@ onMounted(fetchList)
   display: flex;
   flex-wrap: wrap;
   gap: var(--spacing-xs);
-  height: 48px;
   flex-shrink: 0;
   align-content: flex-start;
   overflow: hidden;
@@ -203,21 +172,17 @@ onMounted(fetchList)
 
 .comp-time {
   font-size: var(--font-size-small);
-  color: var(--color-text-secondary);
   line-height: 1.5;
   margin-bottom: var(--spacing-sm);
 }
 
 .comp-desc {
   font-size: var(--font-size-small);
-  color: var(--color-text-secondary);
   line-height: 1.5;
   margin-bottom: var(--spacing-sm);
 }
 
 .comp-actions {
-  margin-top: auto;
-  min-height: 56px;
   align-content: flex-end;
   display: flex;
   gap: var(--spacing-xs);

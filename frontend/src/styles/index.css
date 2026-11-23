@@ -13,7 +13,7 @@
   --color-info: #909399;
 
   /* 背景与文字 */
-  --color-bg: #f5f7fa;
+  --color-bg: #f0f1f6;
   --color-bg-card: #ffffff;
   --color-text: #303133;
   --color-text-secondary: #606266;
@@ -86,4 +86,18 @@ body {
 a {
   color: var(--color-primary);
   text-decoration: none;
+}
+
+.search-container{
+  display: flex;
+  margin-bottom: 16px;
+}
+.search-container .el-input,.search-container   .el-select{
+  margin-right: 12px !important;
+  width: 200px !important;
+}
+.el-pagination{
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
 }

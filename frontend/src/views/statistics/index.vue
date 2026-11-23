@@ -1,8 +1,6 @@
 <template>
   <div>
-    <PageHeader title="统计中心" />
-    <PageContainer v-loading="loading">
-      <el-alert title="报名统计不含待成员确认的草稿；有效参赛仅计审核通过且竞赛未取消的团队；获奖仅计审核通过且未撤销记录。" type="info" :closable="false" style="margin-bottom:16px" />
+      <el-alert type='success' title="报名统计不含待成员确认的草稿；有效参赛仅计审核通过且竞赛未取消的团队；获奖仅计审核通过且未撤销记录。" :closable="false" style="margin-bottom:16px" />
       <el-row :gutter="16" class="card-row">
         <el-col v-for="card in cards" :key="card.label" :xs="12" :sm="8" :md="4">
           <div class="stat-card">
@@ -35,7 +33,6 @@
           </el-card>
         </el-col>
       </el-row>
-    </PageContainer>
   </div>
 </template>
 

@@ -1,104 +1,200 @@
 <template>
   <div>
-    <PageHeader title="竞赛管理">
-      <template #actions>
-        <el-button v-if="isAdmin" type="primary" @click="openCreate">
-          <el-icon><Plus /></el-icon>新增竞赛
-        </el-button>
-      </template>
-    </PageHeader>
-
-    <PageContainer>
-      <el-form :inline="true" :model="query" class="search-form" @submit.prevent>
-        <el-form-item label="关键词">
-          <el-input
-            v-model="query.keyword"
-            placeholder="竞赛名称"
-            clearable
-            style="width: 180px"
-            @keyup.enter="handleSearch"
-          />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="query.status" placeholder="全部" clearable style="width: 130px">
-            <el-option v-for="(label, value) in COMPETITION_STATUS" :key="value" :label="label" :value="value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="级别">
-          <el-select v-model="query.level" placeholder="全部" clearable style="width: 130px">
-            <el-option v-for="(label, value) in COMPETITION_LEVEL" :key="value" :label="label" :value="value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="赛制">
-          <el-select v-model="query.competitionType" placeholder="全部" clearable style="width: 130px">
-            <el-option v-for="(label, value) in COMPETITION_TYPE" :key="value" :label="label" :value="value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSearch">查询</el-button>
-          <el-button @click="handleReset">重置</el-button>
-        </el-form-item>
-      </el-form>
-
-      <el-table class="competition-table" v-loading="loading" :data="list" border stripe>
-        <el-table-column prop="title" label="竞赛名称" min-width="200" show-overflow-tooltip />
-        <el-table-column label="级别" width="100">
-          <template #default="{ row }">{{ COMPETITION_LEVEL[row.level] || row.level }}</template>
-        </el-table-column>
-        <el-table-column label="赛制" width="90">
-          <template #default="{ row }">{{ COMPETITION_TYPE[row.competitionType] || row.competitionType }}</template>
-        </el-table-column>
-        <el-table-column label="所属专业" min-width="170"><template #default="{row}"><MajorLabel :name="row.majorName" :major-id="row.majorId" :icon-code="row.majorIconCode" :logo-file-id="row.majorLogoFileId" /> <el-button v-if="canManage(row)" link type="primary" @click="openClassification(row)">{{ row.majorId || row.allMajors ? '调整分类' : '补录' }}</el-button></template></el-table-column>
-        <el-table-column prop="category" label="类别" width="120" show-overflow-tooltip />
-        <el-table-column label="报名时间" width="200" show-overflow-tooltip>
-          <template #default="{ row }">
-            <span v-if="row.registrationStartTime || row.registrationEndTime">
-              {{ row.registrationStartTime || '-' }} ~ {{ row.registrationEndTime || '-' }}
-            </span>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="maxMembers" label="人数上限" width="90" />
-        <el-table-column label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)">{{ COMPETITION_STATUS[row.status] || row.status }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" :width="isAdmin ? 330 : 80" fixed="right">
-          <template #default="{ row }">
-            <template v-if="canManage(row)">
-              <el-button link type="primary" :disabled="['ENDED','CANCELLED'].includes(row.status)" @click="openEdit(row)">编辑</el-button>
-              <el-button v-if="row.status === 'DRAFT'" link type="success" @click="openPublish(row)">发布</el-button>
-              <el-button
-                v-else-if="row.status === 'REGISTERING'"
-                link
-                type="warning"
-                @click="changeStatus(row, 'IN_PROGRESS')"
-              >开始</el-button>
-              <el-button v-if="row.status === 'IN_PROGRESS'" link type="warning" @click="changeStatus(row, 'ENDED')">结束</el-button>
-              <el-button v-if="!['ENDED', 'CANCELLED'].includes(row.status)" link type="danger" @click="cancelCompetition(row)">取消竞赛</el-button>
-              <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
-            </template>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <div class="pagination-wrapper">
-        <el-pagination
-          v-model:current-page="query.current"
-          v-model:page-size="query.size"
-          :total="total"
-          :page-sizes="[10, 20, 50]"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="fetchList"
-          @current-change="fetchList"
+    <div class="search-container">
+      <el-input
+        v-model="query.keyword"
+        placeholder="请输入竞赛名称"
+        clearable
+        @clear="handleReset"
+        @keyup.enter="handleSearch"
+      />
+      <el-select
+        v-model="query.status"
+        placeholder="选择状态"
+        clearable
+        @clear="handleReset"
+      >
+        <el-option
+          v-for="(label, value) in COMPETITION_STATUS"
+          :key="value"
+          :label="label"
+          :value="value"
         />
-      </div>
-    </PageContainer>
+      </el-select>
+      <el-select
+        v-model="query.level"
+        placeholder="选择级别"
+        clearable
+        @clear="handleReset"
+      >
+        <el-option
+          v-for="(label, value) in COMPETITION_LEVEL"
+          :key="value"
+          :label="label"
+          :value="value"
+        />
+      </el-select>
+      <el-select
+        v-model="query.competitionType"
+        placeholder="选择赛制"
+        @clear="handleReset"
+        clearable
+        style="width: 130px"
+      >
+        <el-option
+          v-for="(label, value) in COMPETITION_TYPE"
+          :key="value"
+          :label="label"
+          :value="value"
+        />
+      </el-select>
+      <el-button type="primary" @click="handleSearch">查询</el-button>
+      <el-button v-if="isAdmin" type="primary" @click="openCreate" icon="plus">新增竞赛</el-button>
+    </div>
 
-    <el-dialog v-model="classificationVisible" title="维护所属专业分类" width="460px">
-      <el-form label-width="90px"><el-form-item label="所属专业" required><el-select v-model="classificationMajor" style="width:100%"><el-option label="全部专业" value="ALL"/><el-option v-for="major in majors" :key="major.id" :label="major.name" :value="major.id"/></el-select></el-form-item></el-form>
-      <template #footer><el-button @click="classificationVisible=false">取消</el-button><el-button type="primary" :loading="submitting" @click="saveClassification">保存</el-button></template>
+    <el-table class="competition-table" v-loading="loading" :data="list" border>
+      <el-table-column
+        prop="title"
+        label="竞赛名称"
+        min-width="200"
+        show-overflow-tooltip
+      />
+      <el-table-column label="级别" width="70" align="center">
+        <template #default="{ row }">{{
+          COMPETITION_LEVEL[row.level] || row.level
+        }}</template>
+      </el-table-column>
+      <el-table-column label="赛制" width="70" align="center">
+        <template #default="{ row }">{{
+          COMPETITION_TYPE[row.competitionType] || row.competitionType
+        }}</template>
+      </el-table-column>
+      <el-table-column label="所属专业" min-width="240"
+        ><template #default="{ row }"
+          ><MajorLabel
+            :name="row.majorName"
+            :major-id="row.majorId"
+            :icon-code="row.majorIconCode"
+            :logo-file-id="row.majorLogoFileId"
+          />
+          <el-button
+            v-if="canManage(row)"
+            link
+            type="primary"
+            @click="openClassification(row)"
+            >{{ row.majorId || row.allMajors ? '调整分类' : '补录' }}</el-button
+          ></template
+        ></el-table-column
+      >
+      <el-table-column
+        prop="category"
+        label="类别"
+        width="120"
+        show-overflow-tooltip
+      />
+      <el-table-column label="报名时间" width="200" show-overflow-tooltip>
+        <template #default="{ row }">
+          <span v-if="row.registrationStartTime || row.registrationEndTime">
+            {{ row.registrationStartTime || '-' }} ~
+            {{ row.registrationEndTime || '-' }}
+          </span>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
+      <el-table-column
+        prop="maxMembers"
+        label="人数上限"
+        width="80"
+        align="center"
+      />
+      <el-table-column label="状态" width="100">
+        <template #default="{ row }">
+          <el-tag :type="statusTagType(row.status)">{{
+            COMPETITION_STATUS[row.status] || row.status
+          }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" :width="isAdmin ? 220 : 80" fixed="right">
+        <template #default="{ row }">
+          <template v-if="canManage(row)">
+            <el-button
+              link
+              type="primary"
+              :disabled="['ENDED', 'CANCELLED'].includes(row.status)"
+              @click="openEdit(row)"
+              >编辑</el-button
+            >
+            <el-button
+              v-if="row.status === 'DRAFT'"
+              link
+              type="success"
+              @click="openPublish(row)"
+              >发布</el-button
+            >
+            <el-button
+              v-else-if="row.status === 'REGISTERING'"
+              link
+              type="warning"
+              @click="changeStatus(row, 'IN_PROGRESS')"
+              >开始</el-button
+            >
+            <el-button
+              v-if="row.status === 'IN_PROGRESS'"
+              link
+              type="warning"
+              @click="changeStatus(row, 'ENDED')"
+              >结束</el-button
+            >
+            <el-button
+              v-if="!['ENDED', 'CANCELLED'].includes(row.status)"
+              link
+              type="danger"
+              @click="cancelCompetition(row)"
+              >取消竞赛</el-button
+            >
+            <el-button link type="danger" @click="handleDelete(row)"
+              >删除</el-button
+            >
+          </template>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <div class="pagination-wrapper">
+      <el-pagination
+        v-model:current-page="query.current"
+        v-model:page-size="query.size"
+        :total="total"
+        :page-sizes="[10, 20, 50]"
+        layout="total, sizes, prev, pager, next, jumper"
+        @size-change="fetchList"
+        @current-change="fetchList"
+      />
+    </div>
+
+    <el-dialog
+      v-model="classificationVisible"
+      title="维护所属专业分类"
+      width="460px"
+    >
+      <el-form label-width="90px"
+        ><el-form-item label="所属专业" required
+          ><el-select v-model="classificationMajor" style="width: 100%"
+            ><el-option label="全部专业" value="ALL" /><el-option
+              v-for="major in majors"
+              :key="major.id"
+              :label="major.name"
+              :value="major.id" /></el-select></el-form-item
+      ></el-form>
+      <template #footer
+        ><el-button @click="classificationVisible = false">取消</el-button
+        ><el-button
+          type="primary"
+          :loading="submitting"
+          @click="saveClassification"
+          >保存</el-button
+        ></template
+      >
     </el-dialog>
     <!-- 新增 / 编辑弹窗 -->
     <el-dialog
@@ -109,28 +205,73 @@
       @close="resetForm"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
-        <el-form-item label="所属专业" prop="majorId"><el-select v-model="selectedMajor" clearable placeholder="请选择专业或全部专业" style="width:100%"><el-option label="全部专业" value="ALL"/><el-option v-for="m in majors" :key="m.id" :label="m.name" :value="m.id" /></el-select></el-form-item>
+        <el-form-item label="所属专业" prop="majorId"
+          ><el-select
+            v-model="selectedMajor"
+            clearable
+            placeholder="请选择专业或全部专业"
+            style="width: 100%"
+            ><el-option label="全部专业" value="ALL" /><el-option
+              v-for="m in majors"
+              :key="m.id"
+              :label="m.name"
+              :value="m.id" /></el-select
+        ></el-form-item>
         <el-form-item label="竞赛名称" prop="title">
           <el-input v-model="form.title" maxlength="128" show-word-limit />
         </el-form-item>
         <el-form-item label="赛制" prop="competitionTypes">
-          <el-select v-model="form.competitionTypes" multiple :multiple-limit="form.id ? 1 : 2" placeholder="可同时选择两种赛制" style="width: 100%">
-            <el-option v-for="(label, value) in COMPETITION_TYPE" :key="value" :label="label" :value="value" />
+          <el-select
+            v-model="form.competitionTypes"
+            multiple
+            :multiple-limit="form.id ? 1 : 2"
+            placeholder="可同时选择两种赛制"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="(label, value) in COMPETITION_TYPE"
+              :key="value"
+              :label="label"
+              :value="value"
+            />
           </el-select>
         </el-form-item>
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="级别" prop="level">
               <el-select v-model="form.level" style="width: 100%">
-                <el-option v-for="(label, value) in COMPETITION_LEVEL" :key="value" :label="label" :value="value" />
+                <el-option
+                  v-for="(label, value) in COMPETITION_LEVEL"
+                  :key="value"
+                  :label="label"
+                  :value="value"
+                />
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="学科类别">
-              <el-select v-model="form.category" filterable clearable placeholder="请选择学科类别" style="width:100%">
-                <el-option v-for="category in COMPETITION_CATEGORIES" :key="category" :label="category" :value="category" />
-                <el-option v-if="form.category && !COMPETITION_CATEGORIES.includes(form.category)" :label="form.category" :value="form.category" />
+              <el-select
+                v-model="form.category"
+                filterable
+                clearable
+                placeholder="请选择学科类别"
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="category in COMPETITION_CATEGORIES"
+                  :key="category"
+                  :label="category"
+                  :value="category"
+                />
+                <el-option
+                  v-if="
+                    form.category &&
+                    !COMPETITION_CATEGORIES.includes(form.category)
+                  "
+                  :label="form.category"
+                  :value="form.category"
+                />
               </el-select>
             </el-form-item>
           </el-col>
@@ -151,16 +292,29 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="指导老师上限" prop="maxTeachers">
-              <el-input-number v-model="form.maxTeachers" :min="1" style="width: 100%" />
+              <el-input-number
+                v-model="form.maxTeachers"
+                :min="1"
+                style="width: 100%"
+              />
             </el-form-item>
           </el-col>
         </el-row>
         <el-form-item v-if="userStore.role === 'ADMIN'" label="负责人用户ID">
-          <el-input-number v-model="form.managerId" :min="1" :precision="0" controls-position="right" />
+          <el-input-number
+            v-model="form.managerId"
+            :min="1"
+            :precision="0"
+            controls-position="right"
+          />
           <span class="el-upload__tip">需为启用的管理员账户，可清空。</span>
         </el-form-item>
         <el-form-item label="跨专业组队">
-          <el-switch v-model="form.allowCrossMajor" :active-value="1" :inactive-value="0" />
+          <el-switch
+            v-model="form.allowCrossMajor"
+            :active-value="1"
+            :inactive-value="0"
+          />
         </el-form-item>
         <el-form-item label="报名时间">
           <el-date-picker
@@ -185,62 +339,167 @@
           />
         </el-form-item>
         <el-form-item label="指导老师">
-          <CompetitionTeacherConfig v-if="dialogVisible" v-model="form.teachers" />
-          <p v-if="!form.id && form.competitionTypes.length === 2" class="form-help">将创建两条独立竞赛记录；所填教师名额分别应用于两种赛制，保存后分别发布和维护。</p>
+          <CompetitionTeacherConfig
+            v-if="dialogVisible"
+            v-model="form.teachers"
+          />
+          <p
+            v-if="!form.id && form.competitionTypes.length === 2"
+            class="form-help"
+          >
+            将创建两条独立竞赛记录；所填教师名额分别应用于两种赛制，保存后分别发布和维护。
+          </p>
         </el-form-item>
         <el-form-item label="竞赛文件">
-          <el-upload accept=".pdf,.doc,.docx" :show-file-list="false" :http-request="uploadDocument" :disabled="uploadingDocument">
+          <el-upload
+            accept=".pdf,.doc,.docx"
+            :show-file-list="false"
+            :http-request="uploadDocument"
+            :disabled="uploadingDocument"
+          >
             <el-button :loading="uploadingDocument">上传竞赛文件</el-button>
-            <template #tip><div class="el-upload__tip">支持 PDF、DOC、DOCX，最大10MB。</div></template>
+            <template #tip
+              ><div class="el-upload__tip">
+                支持 PDF、DOC、DOCX，最大10MB。
+              </div></template
+            >
           </el-upload>
-          <div v-if="form.documentFileId" style="width:100%">{{ form.documentName }} <el-button link type="danger" @click="form.documentFileId = null; form.documentName = ''">移除关联</el-button></div>
+          <div v-if="form.documentFileId" style="width: 100%">
+            {{ form.documentName }}
+            <el-button
+              link
+              type="danger"
+              @click="form.documentFileId = null,form.documentName = ''">移除关联</el-button
+            >
+          </div>
         </el-form-item>
         <el-form-item label="竞赛简介">
-          <el-input v-model="form.description" type="textarea" :rows="3" resize="none" />
+          <el-input
+            v-model="form.description"
+            type="textarea"
+            :rows="3"
+            resize="none"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" :disabled="uploadingDocument || loadingTeachers" @click="handleSubmit">确定</el-button>
+        <el-button
+          type="primary"
+          :loading="submitting"
+          :disabled="uploadingDocument || loadingTeachers"
+          @click="handleSubmit"
+          >确定</el-button
+        >
       </template>
     </el-dialog>
 
-    <el-dialog v-model="publishVisible" title="发布竞赛" width="600px" :close-on-click-modal="false" :close-on-press-escape="!publishing" :show-close="!publishing">
+    <el-dialog
+      v-model="publishVisible"
+      title="发布竞赛"
+      width="600px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="!publishing"
+      :show-close="!publishing"
+    >
       <el-form label-width="110px" @submit.prevent>
-        <el-form-item label="竞赛名称">{{ publishForm.competitionTitle }}</el-form-item>
-        <el-form-item label="同步发布新闻"><el-switch v-model="publishForm.syncNews" :disabled="publishing" /></el-form-item>
-        <el-alert v-if="publishForm.syncNews" title="下一步填写新闻、上传封面，默认开启两周首页轮播；确认后同时发布竞赛和新闻。" type="info" :closable="false" />
+        <el-form-item label="竞赛名称">{{
+          publishForm.competitionTitle
+        }}</el-form-item>
+        <el-form-item label="同步发布新闻"
+          ><el-switch v-model="publishForm.syncNews" :disabled="publishing"
+        /></el-form-item>
+        <el-alert
+          v-if="publishForm.syncNews"
+          title="下一步填写新闻、上传封面，默认开启两周首页轮播；确认后同时发布竞赛和新闻。"
+          type="info"
+          :closable="false"
+        />
       </el-form>
       <template #footer>
-        <el-button :disabled="publishing" @click="publishVisible = false">取消</el-button>
-        <el-button type="primary" :loading="publishing" @click="handlePublish">{{ publishForm.syncNews ? '下一步：填写新闻' : '确认发布' }}</el-button>
+        <el-button :disabled="publishing" @click="publishVisible = false"
+          >取消</el-button
+        >
+        <el-button
+          type="primary"
+          :loading="publishing"
+          @click="handlePublish"
+          >{{
+            publishForm.syncNews ? '下一步：填写新闻' : '确认发布'
+          }}</el-button
+        >
       </template>
     </el-dialog>
 
-    <NewsEditorDialog v-model="newsEditorVisible" :initial-value="newsInitial" :default-carousel-weeks="2" lock-category :publish-action="publishWithNews" @saved="fetchList" />
+    <NewsEditorDialog
+      v-model="newsEditorVisible"
+      :initial-value="newsInitial"
+      :default-carousel-weeks="2"
+      lock-category
+      :publish-action="publishWithNews"
+      @saved="fetchList"
+    />
 
     <!-- 详情弹窗 -->
     <el-dialog v-model="detailVisible" title="竞赛详情" width="640px">
       <el-descriptions :column="2" border>
-        <el-descriptions-item label="竞赛名称" :span="2">{{ detail.title }}</el-descriptions-item>
-        <el-descriptions-item label="赛制">{{ COMPETITION_TYPE[detail.competitionType] || detail.competitionType }}</el-descriptions-item>
-        <el-descriptions-item label="级别">{{ COMPETITION_LEVEL[detail.level] || detail.level }}</el-descriptions-item>
-        <el-descriptions-item label="所属专业"><MajorLabel :name="detail.majorName" :major-id="detail.majorId" :icon-code="detail.majorIconCode" :logo-file-id="detail.majorLogoFileId" placeholder="待补录" /></el-descriptions-item>
-        <el-descriptions-item label="学科类别">{{ detail.category || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="主办单位">{{ detail.organizer || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="团队人数上限">{{ detail.maxMembers }}</el-descriptions-item>
-        <el-descriptions-item label="指导老师上限">{{ detail.maxTeachers }}</el-descriptions-item>
-        <el-descriptions-item label="跨专业组队">{{ detail.allowCrossMajor === 1 ? '是' : '否' }}</el-descriptions-item>
-        <el-descriptions-item label="状态">{{ COMPETITION_STATUS[detail.status] || detail.status }}</el-descriptions-item>
-        <el-descriptions-item v-if="detail.cancellationReason" label="取消原因" :span="2">{{ detail.cancellationReason }}</el-descriptions-item>
+        <el-descriptions-item label="竞赛名称" :span="2">{{
+          detail.title
+        }}</el-descriptions-item>
+        <el-descriptions-item label="赛制">{{
+          COMPETITION_TYPE[detail.competitionType] || detail.competitionType
+        }}</el-descriptions-item>
+        <el-descriptions-item label="级别">{{
+          COMPETITION_LEVEL[detail.level] || detail.level
+        }}</el-descriptions-item>
+        <el-descriptions-item label="所属专业"
+          ><MajorLabel
+            :name="detail.majorName"
+            :major-id="detail.majorId"
+            :icon-code="detail.majorIconCode"
+            :logo-file-id="detail.majorLogoFileId"
+            placeholder="待补录"
+        /></el-descriptions-item>
+        <el-descriptions-item label="学科类别">{{
+          detail.category || '-'
+        }}</el-descriptions-item>
+        <el-descriptions-item label="主办单位">{{
+          detail.organizer || '-'
+        }}</el-descriptions-item>
+        <el-descriptions-item label="团队人数上限">{{
+          detail.maxMembers
+        }}</el-descriptions-item>
+        <el-descriptions-item label="指导老师上限">{{
+          detail.maxTeachers
+        }}</el-descriptions-item>
+        <el-descriptions-item label="跨专业组队">{{
+          detail.allowCrossMajor === 1 ? '是' : '否'
+        }}</el-descriptions-item>
+        <el-descriptions-item label="状态">{{
+          COMPETITION_STATUS[detail.status] || detail.status
+        }}</el-descriptions-item>
+        <el-descriptions-item
+          v-if="detail.cancellationReason"
+          label="取消原因"
+          :span="2"
+          >{{ detail.cancellationReason }}</el-descriptions-item
+        >
         <el-descriptions-item label="报名时间" :span="2">
-          {{ (detail.registrationStartTime || '-') + ' ~ ' + (detail.registrationEndTime || '-') }}
+          {{
+            (detail.registrationStartTime || '-') +
+            ' ~ ' +
+            (detail.registrationEndTime || '-')
+          }}
         </el-descriptions-item>
         <el-descriptions-item label="竞赛时间" :span="2">
           {{ (detail.startTime || '-') + ' ~ ' + (detail.endTime || '-') }}
         </el-descriptions-item>
-        <el-descriptions-item label="竞赛简介" :span="2">{{ detail.description || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="创建时间" :span="2">{{ detail.createTime || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="竞赛简介" :span="2">{{
+          detail.description || '-'
+        }}</el-descriptions-item>
+        <el-descriptions-item label="创建时间" :span="2">{{
+          detail.createTime || '-'
+        }}</el-descriptions-item>
       </el-descriptions>
       <CompetitionResources v-if="detailVisible" :competition="detail" />
     </el-dialog>
@@ -269,17 +528,28 @@ import {
   updateCompetition,
   deleteCompetition,
   updateCompetitionStatus,
-  publishCompetition
+  publishCompetition,
 } from '@/api/competition'
 import { updateCompetitionMajor } from '@/api/competition'
-import { COMPETITION_TYPE, COMPETITION_LEVEL, COMPETITION_STATUS, COMPETITION_CATEGORIES } from '@/constants/dict'
+import {
+  COMPETITION_TYPE,
+  COMPETITION_LEVEL,
+  COMPETITION_STATUS,
+  COMPETITION_CATEGORIES,
+} from '@/constants/dict'
 
 const route = useRoute()
 const userStore = useUserStore()
-const isAdmin = computed(() => userStore.role === 'ADMIN' || userStore.role === 'MAJOR_ADMIN')
+const isAdmin = computed(
+  () => userStore.role === 'ADMIN' || userStore.role === 'MAJOR_ADMIN'
+)
 
 function canManage(row) {
-  return userStore.role === 'ADMIN' || row.publisherId === userStore.userInfo?.id || row.managerId === userStore.userInfo?.id
+  return (
+    userStore.role === 'ADMIN' ||
+    row.publisherId === userStore.userInfo?.id ||
+    row.managerId === userStore.userInfo?.id
+  )
 }
 
 const loading = ref(false)
@@ -288,44 +558,87 @@ const uploadingDocument = ref(false)
 const loadingTeachers = ref(false)
 const publishVisible = ref(false)
 const publishing = ref(false)
-const publishForm = reactive({ id: null, competitionTitle: '', syncNews: false, content: '' })
-const newsEditorVisible = ref(false), newsInitial = ref({})
+const publishForm = reactive({
+  id: null,
+  competitionTitle: '',
+  syncNews: false,
+  content: '',
+})
+const newsEditorVisible = ref(false),
+  newsInitial = ref({})
 
 function openPublish(row) {
-  Object.assign(publishForm, { id: row.id, competitionTitle: row.title, syncNews: false, content: row.description || '' })
+  Object.assign(publishForm, {
+    id: row.id,
+    competitionTitle: row.title,
+    syncNews: false,
+    content: row.description || '',
+  })
   publishVisible.value = true
 }
 
 async function handlePublish() {
   if (publishing.value) return
   if (publishForm.syncNews) {
-    newsInitial.value = { title:publishForm.competitionTitle, content:publishForm.content, category:'NEWS' }
+    newsInitial.value = {
+      title: publishForm.competitionTitle,
+      content: publishForm.content,
+      category: 'NEWS',
+    }
     publishVisible.value = false
     newsEditorVisible.value = true
     return
   }
   publishing.value = true
   try {
-    await publishCompetition(publishForm.id, { syncNews:false })
+    await publishCompetition(publishForm.id, { syncNews: false })
     ElMessage.success('竞赛已发布')
     publishVisible.value = false
     await fetchList()
-  } catch { return }
-  finally { publishing.value = false }
+  } catch {
+    return
+  } finally {
+    publishing.value = false
+  }
 }
 async function publishWithNews(newsId) {
-  await publishCompetition(publishForm.id, { syncNews:true, newsId })
+  await publishCompetition(publishForm.id, { syncNews: true, newsId })
 }
 const list = ref([])
 const majors = ref([])
-const classificationVisible=ref(false), classification=reactive({id:null,majorId:null,allMajors:false})
-const classificationMajor=computed({get:()=>classification.allMajors?'ALL':classification.majorId,set:value=>{classification.allMajors=value==='ALL';classification.majorId=value==='ALL'?null:(value||null)}})
-function openClassification(row){classification.id=row.id;classification.majorId=row.majorId;classification.allMajors=!!row.allMajors;classificationVisible.value=true}
-async function saveClassification(){
-  if(!classification.majorId && !classification.allMajors){ElMessage.warning('请选择专业或全部专业');return}
-  submitting.value=true
-  try{await updateCompetitionMajor(classification.id,classification.majorId,classification.allMajors);classificationVisible.value=false;ElMessage.success('分类已保存');await fetchList()}
-  finally{submitting.value=false}
+const classificationVisible = ref(false),
+  classification = reactive({ id: null, majorId: null, allMajors: false })
+const classificationMajor = computed({
+  get: () => (classification.allMajors ? 'ALL' : classification.majorId),
+  set: (value) => {
+    classification.allMajors = value === 'ALL'
+    classification.majorId = value === 'ALL' ? null : value || null
+  },
+})
+function openClassification(row) {
+  classification.id = row.id
+  classification.majorId = row.majorId
+  classification.allMajors = !!row.allMajors
+  classificationVisible.value = true
+}
+async function saveClassification() {
+  if (!classification.majorId && !classification.allMajors) {
+    ElMessage.warning('请选择专业或全部专业')
+    return
+  }
+  submitting.value = true
+  try {
+    await updateCompetitionMajor(
+      classification.id,
+      classification.majorId,
+      classification.allMajors
+    )
+    classificationVisible.value = false
+    ElMessage.success('分类已保存')
+    await fetchList()
+  } finally {
+    submitting.value = false
+  }
 }
 const total = ref(0)
 const query = reactive({
@@ -334,7 +647,7 @@ const query = reactive({
   keyword: '',
   status: '',
   competitionType: '',
-  level: ''
+  level: '',
 })
 
 const dialogVisible = ref(false)
@@ -360,20 +673,35 @@ const defaultForm = () => ({
   allowCrossMajor: 1,
   documentFileId: null,
   documentName: '',
-  teachers: []
+  teachers: [],
 })
 const form = reactive(defaultForm())
 const selectedMajor = computed({
-  get:()=>form.allMajors ? 'ALL' : form.majorId,
-  set:value=>{form.allMajors=value==='ALL';form.majorId=value==='ALL'?null:(value||null)}
+  get: () => (form.allMajors ? 'ALL' : form.majorId),
+  set: (value) => {
+    form.allMajors = value === 'ALL'
+    form.majorId = value === 'ALL' ? null : value || null
+  },
 })
 
 const rules = {
   title: [{ required: true, message: '请输入竞赛名称', trigger: 'blur' }],
-  competitionTypes: [{ type:'array', required:true, min:1, message:'请至少选择一种赛制', trigger:'change' }],
+  competitionTypes: [
+    {
+      type: 'array',
+      required: true,
+      min: 1,
+      message: '请至少选择一种赛制',
+      trigger: 'change',
+    },
+  ],
   level: [{ required: true, message: '请选择竞赛级别', trigger: 'change' }],
-  maxMembers: [{ required: true, message: '请输入团队人数上限', trigger: 'blur' }],
-  maxTeachers: [{ required: true, message: '请输入指导老师上限', trigger: 'blur' }]
+  maxMembers: [
+    { required: true, message: '请输入团队人数上限', trigger: 'blur' },
+  ],
+  maxTeachers: [
+    { required: true, message: '请输入指导老师上限', trigger: 'blur' },
+  ],
 }
 
 function statusTagType(status) {
@@ -441,16 +769,29 @@ async function openEdit(row) {
     maxTeachers: row.maxTeachers,
     allowCrossMajor: row.allowCrossMajor,
     documentFileId: row.documentFileId,
-    documentName: row.documentName
+    documentName: row.documentName,
   })
-  registrationRange.value = [row.registrationStartTime, row.registrationEndTime].filter(Boolean)
+  registrationRange.value = [
+    row.registrationStartTime,
+    row.registrationEndTime,
+  ].filter(Boolean)
   competitionRange.value = [row.startTime, row.endTime].filter(Boolean)
   dialogVisible.value = true
   loadingTeachers.value = true
   try {
-    const res = await pageQuota({ competitionId: row.id, current: 1, size: 1000 })
-    if (version === formVersion && dialogVisible.value) form.teachers = res.data.records.map(q => ({ teacherId: q.teacherId, quota: q.quota }))
-  } finally { if (version === formVersion) loadingTeachers.value = false }
+    const res = await pageQuota({
+      competitionId: row.id,
+      current: 1,
+      size: 1000,
+    })
+    if (version === formVersion && dialogVisible.value)
+      form.teachers = res.data.records.map((q) => ({
+        teacherId: q.teacherId,
+        quota: q.quota,
+      }))
+  } finally {
+    if (version === formVersion) loadingTeachers.value = false
+  }
 }
 
 async function openDetail(row) {
@@ -459,22 +800,45 @@ async function openDetail(row) {
 }
 
 async function uploadDocument({ file, onSuccess, onError }) {
-  if (file.size > 10 * 1024 * 1024) { const error = new Error('文件不能超过10MB'); ElMessage.warning(error.message); onError(error); return }
+  if (file.size > 10 * 1024 * 1024) {
+    const error = new Error('文件不能超过10MB')
+    ElMessage.warning(error.message)
+    onError(error)
+    return
+  }
   const version = formVersion
   uploadingDocument.value = true
-  try { const res = await uploadFile(file); if (version === formVersion && dialogVisible.value) { form.documentFileId = res.data.id; form.documentName = res.data.name } onSuccess(res) }
-  catch (error) { onError(error) }
-  finally { if (version === formVersion) uploadingDocument.value = false }
+  try {
+    const res = await uploadFile(file)
+    if (version === formVersion && dialogVisible.value) {
+      form.documentFileId = res.data.id
+      form.documentName = res.data.name
+    }
+    onSuccess(res)
+  } catch (error) {
+    onError(error)
+  } finally {
+    if (version === formVersion) uploadingDocument.value = false
+  }
 }
 
 function handleSubmit() {
   formRef.value.validate(async (valid) => {
     if (!valid) return
-    if (!form.teachers.length || form.teachers.some(t => !t.teacherId || !t.quota)) {
-      ElMessage.warning('请至少配置一位指导老师并设置名额'); return
+    if (
+      !form.teachers.length ||
+      form.teachers.some((t) => !t.teacherId || !t.quota)
+    ) {
+      ElMessage.warning('请至少配置一位指导老师并设置名额')
+      return
     }
-    if (!registrationRange.value || registrationRange.value.length !== 2 || registrationRange.value[0] >= registrationRange.value[1]) {
-      ElMessage.warning('报名起止时间必填且开始时间必须早于截止时间'); return
+    if (
+      !registrationRange.value ||
+      registrationRange.value.length !== 2 ||
+      registrationRange.value[0] >= registrationRange.value[1]
+    ) {
+      ElMessage.warning('报名起止时间必填且开始时间必须早于截止时间')
+      return
     }
     submitting.value = true
     try {
@@ -495,18 +859,29 @@ function handleSubmit() {
         registrationEndTime: registrationRange.value?.[1] || null,
         startTime: competitionRange.value?.[0] || null,
         endTime: competitionRange.value?.[1] || null,
-        maxMembers: form.competitionTypes[0]==='PERSONAL'?1:form.maxMembers,
+        maxMembers:
+          form.competitionTypes[0] === 'PERSONAL' ? 1 : form.maxMembers,
         maxTeachers: form.maxTeachers,
-        allowCrossMajor: form.allowCrossMajor
+        allowCrossMajor: form.allowCrossMajor,
       }
       if (form.id) {
         await updateCompetition(form.id, payload)
       } else if (form.competitionTypes.length === 2) {
-        await createCompetitionBatch(form.competitionTypes.map(type=>({...payload,competitionType:type,maxMembers:type==='PERSONAL'?1:form.maxMembers})))
+        await createCompetitionBatch(
+          form.competitionTypes.map((type) => ({
+            ...payload,
+            competitionType: type,
+            maxMembers: type === 'PERSONAL' ? 1 : form.maxMembers,
+          }))
+        )
       } else {
         await createCompetition(payload)
       }
-      ElMessage.success(!form.id && form.competitionTypes.length===2 ? '团队赛和个人赛已分别保存，请分别发布' : '保存成功')
+      ElMessage.success(
+        !form.id && form.competitionTypes.length === 2
+          ? '团队赛和个人赛已分别保存，请分别发布'
+          : '保存成功'
+      )
       dialogVisible.value = false
       fetchList()
     } finally {
@@ -516,7 +891,11 @@ function handleSubmit() {
 }
 
 function handleDelete(row) {
-  ElMessageBox.confirm(`确定删除竞赛「${row.title}」吗？删除后不可恢复。`, '提示', { type: 'warning' })
+  ElMessageBox.confirm(
+    `确定删除竞赛「${row.title}」吗？删除后不可恢复。`,
+    '提示',
+    { type: 'warning' }
+  )
     .then(async () => {
       await deleteCompetition(row.id)
       ElMessage.success('删除成功')
@@ -526,8 +905,12 @@ function handleDelete(row) {
 }
 
 function changeStatus(row, status) {
-  const action = { REGISTERING: '发布', IN_PROGRESS: '开始', ENDED: '结束' }[status]
-  ElMessageBox.confirm(`确定${action}竞赛「${row.title}」吗？`, '提示', { type: 'warning' })
+  const action = { REGISTERING: '发布', IN_PROGRESS: '开始', ENDED: '结束' }[
+    status
+  ]
+  ElMessageBox.confirm(`确定${action}竞赛「${row.title}」吗？`, '提示', {
+    type: 'warning',
+  })
     .then(async () => {
       await updateCompetitionStatus(row.id, status)
       ElMessage.success(`${action}成功`)
@@ -538,10 +921,16 @@ function changeStatus(row, status) {
 
 async function cancelCompetition(row) {
   try {
-    const { value } = await ElMessageBox.prompt(`请输入取消「${row.title}」的原因，报名记录将保留并通知参赛人员。`, '取消竞赛', {
-      inputValidator: value => !!value?.trim() && value.trim().length <= 1000 || '请填写1至1000字取消原因',
-      confirmButtonText: '确认取消竞赛'
-    })
+    const { value } = await ElMessageBox.prompt(
+      `请输入取消「${row.title}」的原因，报名记录将保留并通知参赛人员。`,
+      '取消竞赛',
+      {
+        inputValidator: (value) =>
+          (!!value?.trim() && value.trim().length <= 1000) ||
+          '请填写1至1000字取消原因',
+        confirmButtonText: '确认取消竞赛',
+      }
+    )
     await updateCompetitionStatus(row.id, 'CANCELLED', value.trim())
     ElMessage.success('竞赛已取消')
     fetchList()
@@ -550,27 +939,42 @@ async function cancelCompetition(row) {
   }
 }
 
-watch(() => [route.query.edit, route.query.open], async ([id]) => { if (id) openEdit((await getCompetition(Number(id))).data) })
-watch(() => [route.query.detail, route.query.open], ([id]) => { if (id) openDetail({ id: Number(id) }) })
-onMounted(async () => { majors.value = (await listMajors()).data; fetchList(); if (route.query.edit) openEdit((await getCompetition(Number(route.query.edit))).data); if (route.query.detail) openDetail({ id: Number(route.query.detail) }) })
+watch(
+  () => [route.query.edit, route.query.open],
+  async ([id]) => {
+    if (id) openEdit((await getCompetition(Number(id))).data)
+  }
+)
+watch(
+  () => [route.query.detail, route.query.open],
+  ([id]) => {
+    if (id) openDetail({ id: Number(id) })
+  }
+)
+onMounted(async () => {
+  majors.value = (await listMajors()).data
+  fetchList()
+  if (route.query.edit)
+    openEdit((await getCompetition(Number(route.query.edit))).data)
+  if (route.query.detail) openDetail({ id: Number(route.query.detail) })
+})
 </script>
 
 <style scoped>
-.form-help { margin:8px 0 0; color:var(--el-text-color-secondary); font-size:13px; line-height:1.6; }
-.competition-table { font-size:13px; }
-.competition-table :deep(.el-table__fixed-right .cell), .competition-table :deep(td:last-child .cell) { white-space:nowrap; }
-.competition-table :deep(.el-table__body-wrapper) { overflow-x:auto; }
-.search-form {
-  margin-bottom: var(--spacing-sm);
+.form-help {
+  margin: 8px 0 0;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  line-height: 1.6;
 }
-
-.search-form :deep(.el-form-item) {
-  margin-bottom: var(--spacing-md);
+.competition-table {
+  font-size: 13px;
 }
-
-.pagination-wrapper {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: var(--spacing-md);
+.competition-table :deep(.el-table__fixed-right .cell),
+.competition-table :deep(td:last-child .cell) {
+  white-space: nowrap;
+}
+.competition-table :deep(.el-table__body-wrapper) {
+  overflow-x: auto;
 }
 </style>

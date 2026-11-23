@@ -1,50 +1,536 @@
 <template>
-  <PageHeader :title="isManager ? '成果申报与审核' : '我的获奖记录'"><template #actions><el-button v-if="canWrite" type="primary" @click="create">新增成果申报</el-button></template></PageHeader>
-  <PageContainer>
-    <el-form inline @submit.prevent="search"><el-form-item label="状态"><el-select v-model="query.status" clearable style="width:160px"><el-option v-for="(v,k) in statuses" :key="k" :label="v" :value="k" /></el-select></el-form-item><el-button @click="search">查询</el-button></el-form>
-    <el-table :data="rows" v-loading="loading" border><el-table-column prop="competitionTitle" label="竞赛" min-width="160"/><el-table-column prop="achievementName" label="成果名称" min-width="160"><template #default="{row}">{{row.achievementName || '历史成果，待补录'}}</template></el-table-column><el-table-column prop="teamName" label="团队" min-width="140"/><el-table-column label="奖项"><template #default="{row}">{{ levels[row.awardLevel] || row.awardLevel }}</template></el-table-column><el-table-column label="状态"><template #default="{row}">{{statuses[row.status] || row.status}}</template></el-table-column><el-table-column prop="awardTime" label="获奖时间" width="170"/><el-table-column label="操作" min-width="330"><template #default="{row}"><el-button link @click="inspect(row.id)">详情与材料</el-button><el-button v-if="canEdit(row) && ['DRAFT','REJECTED'].includes(row.status)" link type="primary" @click="edit(row)">编辑重提</el-button><el-button v-if="canEdit(row) && row.status === 'DRAFT'" link @click="submit(row)">提交审核</el-button><el-button v-if="canEdit(row) && row.status === 'APPROVED'" link @click="edit(row,true)">更正重审</el-button><template v-if="isManager && row.status === 'PENDING'"><el-button link type="success" @click="review(row,'APPROVED')">通过</el-button><el-button link type="danger" @click="review(row,'REJECTED')">驳回</el-button></template><el-button v-if="isManager && !['REVOKED','CANCELLED'].includes(row.status)" link type="danger" @click="revoke(row)">撤销</el-button></template></el-table-column></el-table>
-    <el-pagination v-model:current-page="query.current" :total="total" :page-size="query.size" layout="total,prev,pager,next" @current-change="load" />
-  </PageContainer>
-  <el-dialog v-model="editing" :title="correcting?'更正成果并重新审核':'成果申报'" width="min(95vw,760px)">
-    <el-form label-width="125px"><el-form-item label="关联报名" required><el-select v-model="form.registrationId" filterable :disabled="!!form.id" @change="selectRegistration"><el-option v-for="r in registrations" :key="r.id" :label="`${r.competitionTitle} / ${r.teamName}`" :value="r.id"/></el-select></el-form-item><el-form-item label="成果名称" required><el-input v-model="form.achievementName" maxlength="160"/></el-form-item><el-form-item label="实际获奖学生" required><el-select v-model="form.studentIds" multiple><el-option v-for="s in members" :key="s.userId" :value="s.userId" :label="s.realName || s.name || String(s.userId)"/></el-select></el-form-item><el-form-item label="对应指导老师" required><el-select v-model="form.teacherIds" multiple><el-option v-for="t in teachers" :key="t.teacherId" :value="t.teacherId" :label="t.teacherName || String(t.teacherId)"/></el-select></el-form-item><el-form-item label="奖项" required><el-select v-model="form.awardLevel"><el-option v-for="(v,k) in levels" :key="k" :label="v" :value="k"/></el-select></el-form-item><el-form-item label="获奖日期" required><el-date-picker v-model="form.awardTime" type="datetime" value-format="YYYY-MM-DD HH:mm:ss"/></el-form-item>
-      <el-form-item v-for="m in materialFields" :key="m.key" :label="m.label" :required="m.required"><el-upload :show-file-list="false" :accept="m.image ? '.png,.jpg,.jpeg,.webp' : '.pdf,.doc,.docx,.png,.jpg,.jpeg,.webp'" :http-request="o=>upload(o,m)"><el-button :loading="uploading">{{m.key==='processPhotoFileIds'?'上传过程照片（2张）':'上传材料'}}</el-button></el-upload><span class="uploaded">{{m.key==='processPhotoFileIds' ? `${form.processPhotoFileIds.length}/2 张` : form[m.key] ? '已上传' : ''}}</span><el-button v-if="m.key==='processPhotoFileIds' && form.processPhotoFileIds.length" link @click="form.processPhotoFileIds=[]">清空重传</el-button></el-form-item>
-      <el-form-item v-if="correcting" label="更正原因" required><el-input v-model="form.reason" type="textarea" maxlength="1000"/></el-form-item>
-    </el-form><template #footer><el-button @click="editing=false">取消</el-button><el-button v-if="!correcting" :loading="saving" @click="save(true)">保存草稿</el-button><el-button type="primary" :disabled="uploading" :loading="saving" @click="save(false)">{{correcting?'提交更正审核':'提交审核'}}</el-button></template>
+  <PageHeader
+    :title="isManager ? '成果申报与审核' : '我的获奖记录'"
+  ></PageHeader>
+  <div class="search-container">
+    <el-select v-model="query.status" clearable>
+      <el-option v-for="(v, k) in statuses" :key="k" :label="v" :value="k" />
+    </el-select>
+    <el-button @click="search">查询</el-button>
+    <el-button v-if="canWrite" type="primary" @click="create" icon="plus"
+      >新增成果申报</el-button
+    >
+  </div>
+  <el-table :data="rows" v-loading="loading" border>
+    <el-table-column
+      prop="competitionTitle"
+      label="竞赛"
+      min-width="160"
+    /><el-table-column prop="achievementName" label="成果名称" min-width="160"
+      ><template #default="{ row }">{{
+        row.achievementName || '历史成果，待补录'
+      }}</template></el-table-column
+    ><el-table-column
+      prop="teamName"
+      label="团队"
+      min-width="140"
+    /><el-table-column label="奖项"
+      ><template #default="{ row }">{{
+        levels[row.awardLevel] || row.awardLevel
+      }}</template></el-table-column
+    ><el-table-column label="状态"
+      ><template #default="{ row }">{{
+        statuses[row.status] || row.status
+      }}</template></el-table-column
+    ><el-table-column
+      prop="awardTime"
+      label="获奖时间"
+      width="170"
+    /><el-table-column label="操作" min-width="330"
+      ><template #default="{ row }"
+        ><el-button link @click="inspect(row.id)">详情与材料</el-button
+        ><el-button
+          v-if="canEdit(row) && ['DRAFT', 'REJECTED'].includes(row.status)"
+          link
+          type="primary"
+          @click="edit(row)"
+          >编辑重提</el-button
+        ><el-button
+          v-if="canEdit(row) && row.status === 'DRAFT'"
+          link
+          @click="submit(row)"
+          >提交审核</el-button
+        ><el-button
+          v-if="canEdit(row) && row.status === 'APPROVED'"
+          link
+          @click="edit(row, true)"
+          >更正重审</el-button
+        ><template v-if="isManager && row.status === 'PENDING'"
+          ><el-button link type="success" @click="review(row, 'APPROVED')"
+            >通过</el-button
+          ><el-button link type="danger" @click="review(row, 'REJECTED')"
+            >驳回</el-button
+          ></template
+        ><el-button
+          v-if="isManager && !['REVOKED', 'CANCELLED'].includes(row.status)"
+          link
+          type="danger"
+          @click="revoke(row)"
+          >撤销</el-button
+        ></template
+      ></el-table-column
+    ></el-table
+  >
+  <el-pagination
+    v-model:current-page="query.current"
+    :total="total"
+    :page-size="query.size"
+    layout="total,prev,pager,next"
+    @current-change="load"
+  />
+  <el-dialog
+    v-model="editing"
+    :title="correcting ? '更正成果并重新审核' : '成果申报'"
+    width="min(95vw,700px)"
+  >
+    <el-form label-width="125px"
+      ><el-form-item label="关联报名" required
+        ><el-select
+          v-model="form.registrationId"
+          filterable
+          :disabled="!!form.id"
+          @change="selectRegistration"
+          ><el-option
+            v-for="r in registrations"
+            :key="r.id"
+            :label="`${r.competitionTitle} / ${r.teamName}`"
+            :value="r.id" /></el-select></el-form-item
+      ><el-form-item label="成果名称" required
+        ><el-input
+          v-model="form.achievementName"
+          maxlength="160" /></el-form-item
+      ><el-form-item label="实际获奖学生" required
+        ><el-select v-model="form.studentIds" multiple
+          ><el-option
+            v-for="s in members"
+            :key="s.userId"
+            :value="s.userId"
+            :label="
+              s.realName || s.name || String(s.userId)
+            " /></el-select></el-form-item
+      ><el-form-item label="对应指导老师" required
+        ><el-select v-model="form.teacherIds" multiple
+          ><el-option
+            v-for="t in teachers"
+            :key="t.teacherId"
+            :value="t.teacherId"
+            :label="
+              t.teacherName || String(t.teacherId)
+            " /></el-select></el-form-item
+      ><el-form-item label="奖项" required
+        ><el-select v-model="form.awardLevel"
+          ><el-option
+            v-for="(v, k) in levels"
+            :key="k"
+            :label="v"
+            :value="k" /></el-select></el-form-item
+      ><el-form-item label="获奖日期" required
+        ><el-date-picker
+          v-model="form.awardTime"
+          type="datetime"
+          value-format="YYYY-MM-DD HH:mm:ss"
+      /></el-form-item>
+      <el-form-item
+        v-for="m in materialFields"
+        :key="m.key"
+        :label="m.label"
+        :required="m.required"
+        ><el-upload
+          :show-file-list="false"
+          :accept="
+            m.image
+              ? '.png,.jpg,.jpeg,.webp'
+              : '.pdf,.doc,.docx,.png,.jpg,.jpeg,.webp'
+          "
+          :http-request="(o) => upload(o, m)"
+          ><el-button :loading="uploading">{{
+            m.key === 'processPhotoFileIds' ? '上传过程照片（2张）' : '上传材料'
+          }}</el-button></el-upload
+        ><span class="uploaded">{{
+          m.key === 'processPhotoFileIds'
+            ? `${form.processPhotoFileIds.length}/2 张`
+            : form[m.key]
+            ? '已上传'
+            : ''
+        }}</span
+        ><el-button
+          v-if="
+            m.key === 'processPhotoFileIds' && form.processPhotoFileIds.length
+          "
+          link
+          @click="form.processPhotoFileIds = []"
+          >清空重传</el-button
+        ></el-form-item
+      >
+      <el-form-item v-if="correcting" label="更正原因" required
+        ><el-input v-model="form.reason" type="textarea" maxlength="1000"
+      /></el-form-item> </el-form
+    ><template #footer
+      ><el-button @click="editing = false">取消</el-button
+      ><el-button v-if="!correcting" :loading="saving" @click="save(true)"
+        >保存草稿</el-button
+      ><el-button
+        type="primary"
+        :disabled="uploading"
+        :loading="saving"
+        @click="save(false)"
+        >{{ correcting ? '提交更正审核' : '提交审核' }}</el-button
+      ></template
+    >
   </el-dialog>
-  <el-dialog v-model="showDetail" title="成果详情与审核历史" width="min(95vw,780px)"><el-descriptions :column="1" border><el-descriptions-item label="竞赛">{{detail.competitionTitle}}</el-descriptions-item><el-descriptions-item label="成果">{{detail.achievementName || '历史成果待补录'}}</el-descriptions-item><el-descriptions-item label="团队">{{detail.teamName}}</el-descriptions-item><el-descriptions-item label="团队全体成员">{{rosterNames(detail.participantsSnapshot)}}</el-descriptions-item><el-descriptions-item label="实际获奖学生">{{(detail.students||[]).map(s=>s.name).join('、') || '旧资料未明确获奖人员，需补录'}}</el-descriptions-item><el-descriptions-item label="指导老师">{{(detail.teachers||[]).map(t=>t.name).join('、') || '旧资料待补录'}}</el-descriptions-item><el-descriptions-item label="日期 / 奖项">{{detail.awardTime}} / {{levels[detail.awardLevel]}}</el-descriptions-item><el-descriptions-item label="审核意见">{{detail.reviewComment || '无'}}</el-descriptions-item></el-descriptions><p v-for="m in materialFields" :key="m.key">{{m.label}}：<el-button v-for="id in fileIds(detail,m.key)" :key="id" link type="primary" @click="download(detail.id,id)">查看材料 {{id}}</el-button><span v-if="!fileIds(detail,m.key).length">未提供</span></p><PaginatedList :items="history" :reset-key="showDetail + ':' + detail.id" v-slot="{ items }"><el-timeline><el-timeline-item v-for="h in items" :key="h.id" :timestamp="h.operationTime">{{h.actorName}} · {{h.operation}} · {{h.reason || ''}}</el-timeline-item></el-timeline></PaginatedList></el-dialog>
+  <el-dialog
+    v-model="showDetail"
+    title="成果详情与审核历史"
+    width="min(95vw,780px)"
+    ><el-descriptions :column="1" border
+      ><el-descriptions-item label="竞赛">{{
+        detail.competitionTitle
+      }}</el-descriptions-item
+      ><el-descriptions-item label="成果">{{
+        detail.achievementName || '历史成果待补录'
+      }}</el-descriptions-item
+      ><el-descriptions-item label="团队">{{
+        detail.teamName
+      }}</el-descriptions-item
+      ><el-descriptions-item label="团队全体成员">{{
+        rosterNames(detail.participantsSnapshot)
+      }}</el-descriptions-item
+      ><el-descriptions-item label="实际获奖学生">{{
+        (detail.students || []).map((s) => s.name).join('、') ||
+        '旧资料未明确获奖人员，需补录'
+      }}</el-descriptions-item
+      ><el-descriptions-item label="指导老师">{{
+        (detail.teachers || []).map((t) => t.name).join('、') || '旧资料待补录'
+      }}</el-descriptions-item
+      ><el-descriptions-item label="日期 / 奖项"
+        >{{ detail.awardTime }} /
+        {{ levels[detail.awardLevel] }}</el-descriptions-item
+      ><el-descriptions-item label="审核意见">{{
+        detail.reviewComment || '无'
+      }}</el-descriptions-item></el-descriptions
+    >
+    <p v-for="m in materialFields" :key="m.key">
+      {{ m.label }}：<el-button
+        v-for="id in fileIds(detail, m.key)"
+        :key="id"
+        link
+        type="primary"
+        @click="download(detail.id, id)"
+        >查看材料 {{ id }}</el-button
+      ><span v-if="!fileIds(detail, m.key).length">未提供</span>
+    </p>
+    <PaginatedList
+      :items="history"
+      :reset-key="showDetail + ':' + detail.id"
+      v-slot="{ items }"
+      ><el-timeline
+        ><el-timeline-item
+          v-for="h in items"
+          :key="h.id"
+          :timestamp="h.operationTime"
+          >{{ h.actorName }} · {{ h.operation }} ·
+          {{ h.reason || '' }}</el-timeline-item
+        ></el-timeline
+      ></PaginatedList
+    ></el-dialog
+  >
 </template>
 <script setup>
 import PaginatedList from '@/components/PaginatedList.vue'
-import {ref,reactive,computed,onMounted,watch} from 'vue'
-import {useRoute} from 'vue-router'
-import {ElMessage,ElMessageBox} from 'element-plus'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import PageHeader from '@/components/PageHeader.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import request from '@/api/request'
-import {useUserStore} from '@/store/user'
-import {AWARD_LEVEL as levels} from '@/constants/dict'
-const store=useUserStore(),route=useRoute(), isManager=computed(()=>['ADMIN','MAJOR_ADMIN'].includes(store.role)),canWrite=computed(()=>isManager.value||store.role==='TEACHER')
-const statuses={DRAFT:'草稿',PENDING:'待审核',REJECTED:'已驳回',APPROVED:'已通过',REVOKED:'已撤销',CANCELLED:'竞赛取消'}
-const rows=ref([]),total=ref(0),loading=ref(false),saving=ref(false),uploading=ref(false),editing=ref(false),correcting=ref(false),showDetail=ref(false),detail=ref({}),history=ref([]),registrations=ref([]),members=ref([]),teachers=ref([])
-const query=reactive({current:1,size:10,status:null}),form=reactive({processPhotoFileIds:[],studentIds:[],teacherIds:[]})
-const materialFields=[{key:'certificateFileId',label:'获奖证书',type:'AWARD_CERTIFICATE',required:true},{key:'officialListFileId',label:'官方获奖名单',type:'AWARD_OFFICIAL_LIST'},{key:'registrationScreenshotFileId',label:'报名官网截图',type:'AWARD_REGISTRATION_SCREENSHOT',required:true,image:true},{key:'processPhotoFileIds',label:'过程照片',type:'AWARD_PROCESS_PHOTO',required:true,image:true}]
-function canEdit(row){return isManager.value || (store.role==='TEACHER' && row.registrantId===store.userInfo?.id)}
-function search(){query.current=1;load()}
-async function load(){loading.value=true;try{const r=await request.get('/award/page',{params:query});rows.value=r.data.records;total.value=r.data.total}finally{loading.value=false}}
-async function options(){if(isManager.value)registrations.value=(await request.get('/registration/page',{params:{status:'APPROVED',size:100}})).data.records;else {const guides=(await request.get('/guidance/mine',{params:{size:100}})).data.records;registrations.value=[...new Map(guides.filter(g=>['ACTIVE','COMPLETED'].includes(g.status)).map(g=>[g.registrationId,{id:g.registrationId,teamName:g.teamName,competitionTitle:g.competitionTitle}])).values()]}}
-async function selectRegistration(id){if(!id)return;const r=(await request.get(`/registration/${id}`)).data;members.value=form.id&&form.participantsSnapshot?JSON.parse(form.participantsSnapshot):(r.members || []);teachers.value=(await request.get('/guidance/list',{params:{registrationId:id}})).data.filter(g=>['ACTIVE','COMPLETED'].includes(g.status));form.studentIds=form.studentIds.filter(id=>members.value.some(s=>s.userId===id));form.teacherIds=form.teacherIds.filter(id=>teachers.value.some(t=>t.teacherId===id))}
-async function create(){Object.keys(form).forEach(k=>delete form[k]);Object.assign(form,{awardLevel:'FIRST',studentIds:[],teacherIds:[],processPhotoFileIds:[]});correcting.value=false;members.value=[];teachers.value=[];await options();editing.value=true}
-async function edit(row,correction=false){await create();Object.assign(form,row,{studentIds:(row.students||[]).map(s=>s.userId),teacherIds:(row.teachers||[]).map(t=>t.userId),processPhotoFileIds:fileIds(row,'processPhotoFileIds')});correcting.value=correction;await selectRegistration(row.registrationId)}
-async function upload(o,m){if(uploading.value)return;if(m.key==='processPhotoFileIds'&&form.processPhotoFileIds.length>=2){ElMessage.warning('只能上传2张过程照片');return}uploading.value=true;try{const data=new FormData();data.append('file',o.file);const r=await request.post('/file/award-material',data,{params:{bizType:m.type}});if(m.key==='processPhotoFileIds')form.processPhotoFileIds.push(r.data.id);else form[m.key]=r.data.id;o.onSuccess(r)}catch(e){o.onError(e)}finally{uploading.value=false}}
-async function save(draft){if(!form.registrationId)return ElMessage.warning('请选择报名');if(!draft&&(!form.achievementName?.trim()||!form.awardTime||!form.studentIds.length||!form.teacherIds.length||!form.certificateFileId||!form.registrationScreenshotFileId||form.processPhotoFileIds.length!==2))return ElMessage.warning('请填写成果信息、获奖人员和全部必传材料');if(correcting.value&&!form.reason?.trim())return ElMessage.warning('请填写更正原因');saving.value=true;try{const body={...form,draft};if(correcting.value)await request.put(`/award/${form.id}/correction`,body);else if(form.id)await request.put(`/award/${form.id}`,body);else await request.post('/award',body);editing.value=false;ElMessage.success(draft?'草稿已保存':'已提交审核');await load()}finally{saving.value=false}}
-async function submit(row){await request.post(`/award/${row.id}/submit`);await load()}
-async function review(row,result){try{let comment='';if(result==='REJECTED')comment=(await ElMessageBox.prompt('请填写驳回原因','驳回成果',{inputValidator:v=>!!v?.trim()&&v.length<=255||'请填写不超过255字的原因'})).value;else await ElMessageBox.confirm('确认已核对全部人员及证明材料并通过审核？','成果审核');await request.put(`/award/${row.id}/review`,{result,comment});await load()}catch(e){if(e!=='cancel'&&e!=='close')throw e}}
-async function revoke(row){try{const r=await ElMessageBox.prompt('撤销后不计入统计，请填写原因','撤销成果',{inputValidator:v=>!!v?.trim()&&v.length<=1000||'请填写原因'});await request.put(`/award/${row.id}/revoke`,{reason:r.value});await load()}catch(e){if(e!=='cancel'&&e!=='close')throw e}}
-function fileIds(row,key){if(key!=='processPhotoFileIds')return row[key]?[row[key]]:[];try{return Array.isArray(row[key])?row[key]:JSON.parse(row[key]||'[]')}catch{return []}}
-function rosterNames(value){try{return JSON.parse(value||'[]').map(p=>p.name).join('、')}catch{return '旧资料待补录'}}
-async function inspect(id){detail.value=(await request.get(`/award/${id}`)).data;history.value=(await request.get(`/award/${id}/history`)).data;showDetail.value=true}
-async function download(award,id){const blob=await request.get(`/award/${award}/materials/${id}`,{responseType:'blob'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener noreferrer';a.click();setTimeout(()=>URL.revokeObjectURL(url),30000)}
-onMounted(async()=>{await load();if(route.query.detail)await inspect(route.query.detail)})
-watch(()=>[route.query.detail,route.query.open],async()=>{if(route.query.detail)await inspect(route.query.detail)})
+import { useUserStore } from '@/store/user'
+import { AWARD_LEVEL as levels } from '@/constants/dict'
+const store = useUserStore(),
+  route = useRoute(),
+  isManager = computed(() => ['ADMIN', 'MAJOR_ADMIN'].includes(store.role)),
+  canWrite = computed(() => isManager.value || store.role === 'TEACHER')
+const statuses = {
+  DRAFT: '草稿',
+  PENDING: '待审核',
+  REJECTED: '已驳回',
+  APPROVED: '已通过',
+  REVOKED: '已撤销',
+  CANCELLED: '竞赛取消',
+}
+const rows = ref([]),
+  total = ref(0),
+  loading = ref(false),
+  saving = ref(false),
+  uploading = ref(false),
+  editing = ref(false),
+  correcting = ref(false),
+  showDetail = ref(false),
+  detail = ref({}),
+  history = ref([]),
+  registrations = ref([]),
+  members = ref([]),
+  teachers = ref([])
+const query = reactive({ current: 1, size: 10, status: null }),
+  form = reactive({ processPhotoFileIds: [], studentIds: [], teacherIds: [] })
+const materialFields = [
+  {
+    key: 'certificateFileId',
+    label: '获奖证书',
+    type: 'AWARD_CERTIFICATE',
+    required: true,
+  },
+  {
+    key: 'officialListFileId',
+    label: '官方获奖名单',
+    type: 'AWARD_OFFICIAL_LIST',
+  },
+  {
+    key: 'registrationScreenshotFileId',
+    label: '报名官网截图',
+    type: 'AWARD_REGISTRATION_SCREENSHOT',
+    required: true,
+    image: true,
+  },
+  {
+    key: 'processPhotoFileIds',
+    label: '过程照片',
+    type: 'AWARD_PROCESS_PHOTO',
+    required: true,
+    image: true,
+  },
+]
+function canEdit(row) {
+  return (
+    isManager.value ||
+    (store.role === 'TEACHER' && row.registrantId === store.userInfo?.id)
+  )
+}
+function search() {
+  query.current = 1
+  load()
+}
+async function load() {
+  loading.value = true
+  try {
+    const r = await request.get('/award/page', { params: query })
+    rows.value = r.data.records
+    total.value = r.data.total
+  } finally {
+    loading.value = false
+  }
+}
+async function options() {
+  if (isManager.value)
+    registrations.value = (
+      await request.get('/registration/page', {
+        params: { status: 'APPROVED', size: 100 },
+      })
+    ).data.records
+  else {
+    const guides = (
+      await request.get('/guidance/mine', { params: { size: 100 } })
+    ).data.records
+    registrations.value = [
+      ...new Map(
+        guides
+          .filter((g) => ['ACTIVE', 'COMPLETED'].includes(g.status))
+          .map((g) => [
+            g.registrationId,
+            {
+              id: g.registrationId,
+              teamName: g.teamName,
+              competitionTitle: g.competitionTitle,
+            },
+          ])
+      ).values(),
+    ]
+  }
+}
+async function selectRegistration(id) {
+  if (!id) return
+  const r = (await request.get(`/registration/${id}`)).data
+  members.value =
+    form.id && form.participantsSnapshot
+      ? JSON.parse(form.participantsSnapshot)
+      : r.members || []
+  teachers.value = (
+    await request.get('/guidance/list', { params: { registrationId: id } })
+  ).data.filter((g) => ['ACTIVE', 'COMPLETED'].includes(g.status))
+  form.studentIds = form.studentIds.filter((id) =>
+    members.value.some((s) => s.userId === id)
+  )
+  form.teacherIds = form.teacherIds.filter((id) =>
+    teachers.value.some((t) => t.teacherId === id)
+  )
+}
+async function create() {
+  Object.keys(form).forEach((k) => delete form[k])
+  Object.assign(form, {
+    awardLevel: 'FIRST',
+    studentIds: [],
+    teacherIds: [],
+    processPhotoFileIds: [],
+  })
+  correcting.value = false
+  members.value = []
+  teachers.value = []
+  await options()
+  editing.value = true
+}
+async function edit(row, correction = false) {
+  await create()
+  Object.assign(form, row, {
+    studentIds: (row.students || []).map((s) => s.userId),
+    teacherIds: (row.teachers || []).map((t) => t.userId),
+    processPhotoFileIds: fileIds(row, 'processPhotoFileIds'),
+  })
+  correcting.value = correction
+  await selectRegistration(row.registrationId)
+}
+async function upload(o, m) {
+  if (uploading.value) return
+  if (m.key === 'processPhotoFileIds' && form.processPhotoFileIds.length >= 2) {
+    ElMessage.warning('只能上传2张过程照片')
+    return
+  }
+  uploading.value = true
+  try {
+    const data = new FormData()
+    data.append('file', o.file)
+    const r = await request.post('/file/award-material', data, {
+      params: { bizType: m.type },
+    })
+    if (m.key === 'processPhotoFileIds')
+      form.processPhotoFileIds.push(r.data.id)
+    else form[m.key] = r.data.id
+    o.onSuccess(r)
+  } catch (e) {
+    o.onError(e)
+  } finally {
+    uploading.value = false
+  }
+}
+async function save(draft) {
+  if (!form.registrationId) return ElMessage.warning('请选择报名')
+  if (
+    !draft &&
+    (!form.achievementName?.trim() ||
+      !form.awardTime ||
+      !form.studentIds.length ||
+      !form.teacherIds.length ||
+      !form.certificateFileId ||
+      !form.registrationScreenshotFileId ||
+      form.processPhotoFileIds.length !== 2)
+  )
+    return ElMessage.warning('请填写成果信息、获奖人员和全部必传材料')
+  if (correcting.value && !form.reason?.trim())
+    return ElMessage.warning('请填写更正原因')
+  saving.value = true
+  try {
+    const body = { ...form, draft }
+    if (correcting.value)
+      await request.put(`/award/${form.id}/correction`, body)
+    else if (form.id) await request.put(`/award/${form.id}`, body)
+    else await request.post('/award', body)
+    editing.value = false
+    ElMessage.success(draft ? '草稿已保存' : '已提交审核')
+    await load()
+  } finally {
+    saving.value = false
+  }
+}
+async function submit(row) {
+  await request.post(`/award/${row.id}/submit`)
+  await load()
+}
+async function review(row, result) {
+  try {
+    let comment = ''
+    if (result === 'REJECTED')
+      comment = (
+        await ElMessageBox.prompt('请填写驳回原因', '驳回成果', {
+          inputValidator: (v) =>
+            (!!v?.trim() && v.length <= 255) || '请填写不超过255字的原因',
+        })
+      ).value
+    else
+      await ElMessageBox.confirm(
+        '确认已核对全部人员及证明材料并通过审核？',
+        '成果审核'
+      )
+    await request.put(`/award/${row.id}/review`, { result, comment })
+    await load()
+  } catch (e) {
+    if (e !== 'cancel' && e !== 'close') throw e
+  }
+}
+async function revoke(row) {
+  try {
+    const r = await ElMessageBox.prompt(
+      '撤销后不计入统计，请填写原因',
+      '撤销成果',
+      {
+        inputValidator: (v) =>
+          (!!v?.trim() && v.length <= 1000) || '请填写原因',
+      }
+    )
+    await request.put(`/award/${row.id}/revoke`, { reason: r.value })
+    await load()
+  } catch (e) {
+    if (e !== 'cancel' && e !== 'close') throw e
+  }
+}
+function fileIds(row, key) {
+  if (key !== 'processPhotoFileIds') return row[key] ? [row[key]] : []
+  try {
+    return Array.isArray(row[key]) ? row[key] : JSON.parse(row[key] || '[]')
+  } catch {
+    return []
+  }
+}
+function rosterNames(value) {
+  try {
+    return JSON.parse(value || '[]')
+      .map((p) => p.name)
+      .join('、')
+  } catch {
+    return '旧资料待补录'
+  }
+}
+async function inspect(id) {
+  detail.value = (await request.get(`/award/${id}`)).data
+  history.value = (await request.get(`/award/${id}/history`)).data
+  showDetail.value = true
+}
+async function download(award, id) {
+  const blob = await request.get(`/award/${award}/materials/${id}`, {
+    responseType: 'blob',
+  })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.target = '_blank'
+  a.rel = 'noopener noreferrer'
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 30000)
+}
+onMounted(async () => {
+  await load()
+  if (route.query.detail) await inspect(route.query.detail)
+})
+watch(
+  () => [route.query.detail, route.query.open],
+  async () => {
+    if (route.query.detail) await inspect(route.query.detail)
+  }
+)
 </script>
-<style scoped>.uploaded{margin:0 12px;color:var(--el-color-success)}.el-pagination{margin-top:18px}</style>
+<style scoped>
+.uploaded {
+  margin: 0 12px;
+  color: var(--el-color-success);
+}
+.el-pagination {
+  margin-top: 18px;
+}
+</style>

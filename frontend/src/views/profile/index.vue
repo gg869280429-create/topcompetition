@@ -1,17 +1,8 @@
 <template>
   <div class="personal-center">
-    <PageHeader :title="isTeacher ? '个人中心' : '个人信息'" />
     <template v-if="isTeacher">
       <el-tabs v-model="tab" @tab-change="loadTab">
         <el-tab-pane label="个人资料" name="profile"><ProfileSettings /></el-tab-pane>
-        <el-tab-pane label="我的指导" name="guidance"><MyGuidance v-if="tab === 'guidance'" /></el-tab-pane>
-        <el-tab-pane label="指导名额" name="quota">
-          <GuidanceQuotaSummary v-if="tab === 'quota'" />
-          <PageContainer v-loading="loading">
-            <el-table :data="quotas" border stripe><el-table-column prop="competitionTitle" label="竞赛" min-width="180"/><el-table-column prop="remaining" label="剩余指导名额" min-width="130"/><el-table-column prop="assigned" label="正在指导名额" min-width="130"/><el-table-column prop="quota" label="总共指导名额" min-width="130"/></el-table>
-            <el-pagination v-model:current-page="quotaPage" :total="quotaTotal" :page-size="10" layout="total,prev,pager,next" @current-change="loadQuotas" />
-          </PageContainer>
-        </el-tab-pane>
         <el-tab-pane label="历史获奖" name="awards">
           <PageContainer v-loading="loading">
             <el-table :data="awards" border stripe><el-table-column prop="competitionTitle" label="竞赛" min-width="170"/><el-table-column prop="achievementName" label="获奖成果" min-width="170"/><el-table-column label="奖项" min-width="100"><template #default="{row}">{{ AWARD_LEVEL[row.awardLevel] || row.awardLevel }}</template></el-table-column><el-table-column prop="awardTime" label="获奖日期" min-width="170"/><el-table-column label="操作" width="90"><template #default="{row}"><el-button link type="primary" @click="router.push({path:'/award',query:{detail:row.id}})">查看详情</el-button></template></el-table-column></el-table>
@@ -31,9 +22,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import PageHeader from '@/components/PageHeader.vue'
 import PageContainer from '@/components/PageContainer.vue'
-import MyGuidance from '@/components/MyGuidance.vue'
 import ProfileSettings from '@/components/ProfileSettings.vue'
-import GuidanceQuotaSummary from '@/components/GuidanceQuotaSummary.vue'
 import { pageMyCompetitions } from '@/api/guidance'
 import request from '@/api/request'
 import { AWARD_LEVEL } from '@/constants/dict'
